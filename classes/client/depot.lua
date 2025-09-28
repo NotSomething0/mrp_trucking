@@ -1,13 +1,15 @@
 ---@class CDepot
----@field private private {  m_blip: number }
+---@field private private {  m_config: CConfigStore, m_blip: number, m_interactionPoint: CPoint }
 CDepot = lib.class('CDepot')
 
----Creates a new depot object
----@param blipCoordinate vector3
-function CDepot:constructor(blipCoordinate)
-  self.private.m_blip = self:createBlip(blipCoordinate)
+---Create a new instance of CDepot
+---@param config CConfigStore
+function CDepot:constructor(config)
+  self.private.m_config = config
+  self.private.m_blip = self:createBlip()
 
   self:updateBlip()
+  self:createInteractionPed()
 end
 
 ---Get the blip for the depot
@@ -17,10 +19,10 @@ function CDepot:getBlip()
 end
 
 ---Create a blip for the depot
----@param blipCoordinate vector3
 ---@return number blip
-function CDepot:createBlip(blipCoordinate)
-  local blip = AddBlipForCoord(blipCoordinate.x, blipCoordinate.y, blipCoordinate.z)
+function CDepot:createBlip()
+  local blipCoordinates = self.private.m_config:getDepotBlipCoordinates()
+  local blip = AddBlipForCoord(blipCoordinates.x, blipCoordinates.y, blipCoordinates.z)
 
   SetBlipSprite(blip, 457)
   SetBlipDisplay(blip, 6)
@@ -63,7 +65,7 @@ function CDepot:updateBlip()
 end
 
 function CDepot:getTruckReturnCoordinate()
-  local truckSpawns = Config:getTruckSpawns()
+  local truckSpawns = config:getTruckSpawns()
   local truckReturnCoordinate = vector3(0, 0, 0)
 
   for index = 1, #truckSpawns do
@@ -86,4 +88,92 @@ function CDepot:getTruckReturnCoordinate()
   end
 
   return truckReturnCoordinate
+end
+
+function CDepot:createInteractionPed()
+  local config = self.private.m_config
+
+  self.private.m_interactionPoint = lib.points.new({
+    coords = config:getDepotPedCoordinates(),
+    distance = 200,
+    tipAlreadyDisplayed = false
+  })
+
+  function self.private.m_interactionPoint:onEnter()
+    local depotPedModel = config:getDepotPedModel()
+    local depotPedHeading = config:getDepotPedHeading()
+    local depotPedCoordinates = config:getDepotPedCoordinates()
+
+    lib.requestModel(depotPedModel, 1000)
+
+    self.managerPed = CreatePed(0, depotPedModel, depotPedCoordinates.x, depotPedCoordinates.y,
+      depotPedCoordinates.z, depotPedHeading, false, false)
+
+    if not DoesEntityExist(self.managerPed) then
+      error('Failed to create Post OP Depot Manager')
+    end
+
+    SetModelAsNoLongerNeeded(depotPedModel)
+    SetPedCanBeTargetted(self.managerPed, false)
+    FreezeEntityPosition(self.managerPed, true)
+    SetEntityInvincible(self.managerPed, true)
+    SetBlockingOfNonTemporaryEvents(self.managerPed, true)
+
+    exports.ox_target:addLocalEntity(self.managerPed, {
+      label = 'Post OP Depot Manager',
+      name = 'name',
+      icon = 'fa-brands fa-usps',
+      iconColor = 'white',
+      distance = 10,
+      onSelect = function()
+        lib.showContext('TJ_DEPOT_MENU')
+      end
+    })
+
+    if not DoesBlipExist(self.managerBlip) then
+      local managerBlip = AddBlipForEntity(self.managerPed)
+
+      SetBlipSprite(managerBlip, 480)
+      SetBlipColour(managerBlip, 21)
+      SetBlipAsShortRange(managerBlip, true)
+      SetBlipName(managerBlip, 'Post OP Depot Manager')
+
+      self.managerBlip = managerBlip
+
+      if not self.tipAlreadyDisplayed then
+        TriggerEvent('deliveryController:displayHelpText', 'TJ_TIP_SPEAK_TO_MANAGER')
+        SetBlipFlashTimer(self.managerBlip, 5000)
+        self.tipAlreadyDisplayed = true
+      end
+    end
+  end
+
+  function self.private.m_interactionPoint:nearby()
+    if self.currentDistance > 5 then
+      return
+    end
+
+    if IsScriptedSpeechPlaying(self.managerPed) then
+      return
+    end
+
+    local pedHasGreetedDriver = Entity(self.managerPed).state.hasGreetedDriver or false
+
+    if pedHasGreetedDriver then
+      return
+    end
+
+    TaskLookAtEntity(self.managerPed, cache.ped, 1000, 2048, 3)
+    PlayPedAmbientSpeechNative(self.managerPed, 'GENERIC_HI', 'SPEECH_PARAMS_STANDARD')
+    Entity(self.managerPed).state.hasGreetedDriver = true
+  end
+
+  function self.private.m_interactionPoint:onExit()
+    if DoesEntityExist(self.managerPed) then
+      DeleteEntity(self.managerPed)
+    end
+
+    self.managerBlip = 0
+    self.managerPed = 0
+  end
 end
