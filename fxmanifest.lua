@@ -14,7 +14,7 @@ shared_scripts {
 }
 
 client_script {
-  'classes/client/*.lua',
+  'client/classes/*.lua',
   'client/cl_main.lua',
   'client/cl_depotPedManager.lua'
 }
