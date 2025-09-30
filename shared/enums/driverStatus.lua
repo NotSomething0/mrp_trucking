@@ -1,5 +1,5 @@
----@enum DriverStates
-DriverStates = {
+---@enum DriverStatus
+DriverStatus = {
   WAITING_FOR_DELIVERY = 0,
   WAITING_FOR_ROUTE_INIT = 1,
   COLLECTING_TRUCK = 2,
