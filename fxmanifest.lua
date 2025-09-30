@@ -9,7 +9,7 @@ shared_scripts {
   '@ox_core/lib/init.lua',
   'classes/shared/*.lua',
   'shared/enums/*.lua',
-  'shared/configStore.lua',
+  'shared/truckingConfig.lua',
   'shared/sh_util.lua'
 }
 
