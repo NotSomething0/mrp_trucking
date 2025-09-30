@@ -4,34 +4,34 @@
 
 ---Create a new instance of CDepot
 ---@see CDepot.constructor
----@param config CConfigStore
+---@param config CTruckingConfig
 ---@return CDepot
 function CDepot:new(config) end
 
 ---Create a new instance of CDeliveryManager
 ---@see CDeliveryManager.constructor
----@param config CConfigStore
+---@param config CTruckingConfig
 ---@return CDeliveryManager
 function CDeliveryManager:new(config) end
 
 ---Create a new instance of CDriverManager
 ---@see CDriverManager.constructor
----@param config CConfigStore
+---@param config CTruckingConfig
 ---@param deliveryManager CDeliveryManager
 ---@return CDriverManager
 function CDriverManager:new(config, deliveryManager) end
 
 ---Create a new instance of CDeliveryController
 ---@see CDeliveryController.constructor
----@param config CConfigStore
+---@param config CTruckingConfig
 ---@return CDeliveryController
 function CDeliveryController:new(config)
 end
 
----Create a new instance of CConfigStore
----@see CConfigStore.constructor
----@return CConfigStore
-function CConfigStore:new()
+---Create a new instance of CTruckingConfig
+---@see CTruckingConfig.constructor
+---@return CTruckingConfig
+function CTruckingConfig:new()
 end
 
 ---Create a new instance of CRouteFactory

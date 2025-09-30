@@ -43,11 +43,11 @@ local CONFIG_DEFAULTS <const> = {
   }
 }
 
----@class CConfigStore
+---@class CTruckingConfig
 ---@field private private { m_depotPedModel: number,  m_depotPedCoordinates: vector3, m_depotPedHeading: number, m_depotBlipCoordinates: vector3, m_deliveryRoutes: table, truckModels: table, trailerModels: table, truckSpawns: table, trailerSpawns: table, deliveryRoutes: table, _deliveryRoutes: table }
-CConfigStore = lib.class('CConfigStore')
+CTruckingConfig = lib.class('CTruckingConfig')
 
-function CConfigStore:constructor()
+function CTruckingConfig:constructor()
   self.private.m_depotBlipCoordinates = vector3(0, 0, 0)
 
   self.private.truckModels = {}
@@ -72,7 +72,7 @@ function CConfigStore:constructor()
 end
 
 ---@return number pedModelHash
-function CConfigStore:getDepotPedModel()
+function CTruckingConfig:getDepotPedModel()
   ---@diagnostic disable-next-line: missing-return-value
   if IS_SERVER then return end
 
@@ -80,20 +80,20 @@ function CConfigStore:getDepotPedModel()
 end
 
 ---comment
-function CConfigStore:setDepotPedModel()
+function CTruckingConfig:setDepotPedModel()
   if IS_SERVER then return end
 
   local pedModel = GetConvar('truckJob:depotPedModel', CONFIG_DEFAULTS.PED_MODEL)
 
   if not IsModelInCdimage(pedModel) or not IsModelAPed(pedModel) then
-    warn('CConfigStore:setDepotPedModel: %s is not a valid ped model. Falling back on default ped model "s_m_m_ups_01"')
+    warn('CTruckingConfig:setDepotPedModel: %s is not a valid ped model. Falling back on default ped model "s_m_m_ups_01"')
     pedModel = CONFIG_DEFAULTS.PED_MODEL
   end
 
   self.private.m_depotPedModel = GetHashKey(pedModel)
 end
 
-function CConfigStore:setDepotPedCoordinates()
+function CTruckingConfig:setDepotPedCoordinates()
   local pedLocation = GetConvarVector('truckJob:depotPedLocation', CONFIG_DEFAULTS.PED_COORDINATES)
 
   if type(pedLocation) ~= 'vector3' then
@@ -104,34 +104,34 @@ function CConfigStore:setDepotPedCoordinates()
 end
 
 ---@return vector3 pedCoordinates
-function CConfigStore:getDepotPedCoordinates()
+function CTruckingConfig:getDepotPedCoordinates()
   return self.private.m_depotPedCoordinates
 end
 
-function CConfigStore:setDepotPedHeading()
+function CTruckingConfig:setDepotPedHeading()
   local pedHeading = GetConvarFloat('truckJob:depotPedHeading', 225.24)
 
   self.private.m_depotPedHeading = pedHeading
 end
 
-function CConfigStore:getDepotPedHeading()
+function CTruckingConfig:getDepotPedHeading()
   return self.private.m_depotPedHeading
 end
 
-function CConfigStore:setDepotBlipCoordinates()
+function CTruckingConfig:setDepotBlipCoordinates()
   self.private.m_depotBlipCoordinates = GetConvarVector('truckJob:depotBlipLocation',
     CONFIG_DEFAULTS.DEPOT_BLIP_COORDINATES)
 end
 
 ---comment
 ---@return vector3
-function CConfigStore:getDepotBlipCoordinates()
+function CTruckingConfig:getDepotBlipCoordinates()
   return self.private.m_depotBlipCoordinates
 end
 
 ---Gets a random truck model hash from the loaded truck models.
 ---@return number # The hash of a randomly selected truck model.
-function CConfigStore:getRandomTruckModel()
+function CTruckingConfig:getRandomTruckModel()
   ---@diagnostic disable-next-line: missing-return-value
   if not IS_SERVER then return end
 
@@ -147,7 +147,7 @@ function CConfigStore:getRandomTruckModel()
 end
 
 ---Sets the truck models by loading them from the configuration using a Convar.
-function CConfigStore:setTruckModels()
+function CTruckingConfig:setTruckModels()
   if not IS_SERVER then return end
 
   local truckModels = GetConvarArray('truckJob:truckModels', CONFIG_DEFAULTS.TRAILER_MODELS)
@@ -165,7 +165,7 @@ end
 
 ---Gets a random trailer model hash from the loaded trailer models.
 ---@return number # The hash of a randomly selected trailer model.
-function CConfigStore:getRandomTrailerModel()
+function CTruckingConfig:getRandomTrailerModel()
   ---@diagnostic disable-next-line: missing-return-value
   if not IS_SERVER then return end
 
@@ -181,7 +181,7 @@ function CConfigStore:getRandomTrailerModel()
 end
 
 ---Sets the trailer models by loading them from the configuration using a Convar.
-function CConfigStore:setTrailerModels()
+function CTruckingConfig:setTrailerModels()
   ---@diagnostic disable-next-line: missing-return-value
   if not IS_SERVER then return end
 
@@ -204,12 +204,12 @@ end
 
 ---Gets the truck spawn locations stored in the configuration.
 ---@return table # A table containing the truck spawn locations with position and heading.
-function CConfigStore:getTruckSpawns()
+function CTruckingConfig:getTruckSpawns()
   return self.private.truckSpawns
 end
 
 ---Sets the truck spawn locations by loading them from the configuration using a Convar.
-function CConfigStore:setTruckSpawnLocations()
+function CTruckingConfig:setTruckSpawnLocations()
   local truckSpawns = GetConvarVectorWithHeading('truckJob:truckSpawnLocations', CONFIG_DEFAULTS.TRUCK_SPAWNS)
 
   if #self.private.truckSpawns >= 1 then
@@ -230,12 +230,12 @@ end
 
 ---Gets the trailer spawn locations stored in the configuration.
 ---@return table # A table containing the trailer spawn locations with position and heading.
-function CConfigStore:getTrailerSpawns()
+function CTruckingConfig:getTrailerSpawns()
   return self.private.trailerSpawns
 end
 
 ---Sets the trailer spawn locations by loading them from the configuration using a Convar.
-function CConfigStore:setTrailerSpawnLocations()
+function CTruckingConfig:setTrailerSpawnLocations()
   local trailerSpawns = GetConvarVectorWithHeading('truckJob:trailerSpawnLocations', CONFIG_DEFAULTS.TRAILER_SPAWNS)
 
   table.clear(self.private.trailerSpawns)
@@ -247,23 +247,23 @@ function CConfigStore:setTrailerSpawnLocations()
   end
 end
 
-function CConfigStore:getRandomDeliveryRoute()
+function CTruckingConfig:getRandomDeliveryRoute()
   local deliveryRoutes = self.private.m_deliveryRoutes
   local deliveryRouteIndex = math.random(#deliveryRoutes)
 
   return self.private.m_deliveryRoutes[deliveryRouteIndex]
 end
 
-function CConfigStore:getPayPerDelivery()
+function CTruckingConfig:getPayPerDelivery()
   --return self.private.m_payPerDelivery
 end
 
-function CConfigStore:getPayPerMile()
+function CTruckingConfig:getPayPerMile()
   --return self.private.m_payPerMile
 end
 
 -- Method to set payout multipliers from the configuration
-function CConfigStore:setPayoutRates()
+function CTruckingConfig:setPayoutRates()
   if not IS_SERVER then return end
 
   --self.private.m_payPerDelivery = GetConvarFloat('truckJob:payPerDelivery', 50.0)
@@ -273,22 +273,22 @@ end
 ---Gets the route at the specified index
 ---@param index number
 ---@return CDeliveryRoute
-function CConfigStore:getRouteAtIndex(index)
+function CTruckingConfig:getRouteAtIndex(index)
   local route = self.private.m_deliveryRoutes[index]
 
   return route
 end
 
-function CConfigStore:_getDeliveryRoutes()
+function CTruckingConfig:_getDeliveryRoutes()
   return self.private.m_deliveryRoutes
 end
 
 ---comment
-function CConfigStore:_setDeliveryRoutes()
+function CTruckingConfig:_setDeliveryRoutes()
   local rawRoutes = GetConvar('truckJob:_deliveryRoutes', 'default')
 
   if rawRoutes == 'default' then
-    warn('CConfigStore:setDeliveryRoutes is unset falling back to default routes.')
+    warn('CTruckingConfig:setDeliveryRoutes is unset falling back to default routes.')
     self.private.m_deliveryRoutes = CONFIG_DEFAULTS.DELIVERY_DROP_POINTS
     return
   end
@@ -296,7 +296,7 @@ function CConfigStore:_setDeliveryRoutes()
   local routesDecoded = json.decode(rawRoutes)
 
   if not routesDecoded then
-    warn('CConfigStore:setDeliveryRoutes could not decode truckJob:_deliveryRoutes falling back to default routes.')
+    warn('CTruckingConfig:setDeliveryRoutes could not decode truckJob:_deliveryRoutes falling back to default routes.')
     self.private.m_deliveryRoutes = CONFIG_DEFAULTS.DELIVERY_DROP_POINTS
     return
   end
