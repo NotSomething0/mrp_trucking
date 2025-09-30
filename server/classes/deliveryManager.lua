@@ -68,12 +68,11 @@ end
 ---Get an available route for assignment
 ---@return CDeliveryRoute|false route
 function CDeliveryManager:getAvailableRoute()
+  self:processCompletedRoutes()
+
   if #self.private.m_availableRoutes < 1 then
     return false
   end
-
-  -- Clean up completed routes first
-  self:processCompletedRoutes()
 
   local route = table.remove(self.private.m_availableRoutes, 1)
 
