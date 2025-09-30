@@ -7,7 +7,7 @@ use_experimental_fxv2_oal 'yes'
 shared_scripts {
   '@ox_lib/init.lua',
   '@ox_core/lib/init.lua',
-  'classes/shared/*.lua',
+  'shared/classes/*.lua',
   'shared/enums/*.lua',
   'shared/truckingConfig.lua',
   'shared/sh_util.lua'
