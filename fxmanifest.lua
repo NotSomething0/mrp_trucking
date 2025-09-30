@@ -20,6 +20,6 @@ client_script {
 }
 
 server_scripts {
-  'classes/server/*.lua',
+  'server/classes/*.lua',
   'server/sv_*.lua'
 }
