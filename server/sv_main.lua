@@ -1,11 +1,11 @@
 local UNASSIGNED_DRIVERS_POLL_RATE <const> = 1000
 local MAXIMUM_DISTANCE_BETWEEN_TRUCK_AND_TRAILER <const> = 50
 
-local config = CConfigStore:new()
-local deliveryManager = CDeliveryManager:new(config)
-local driverManager = CDriverManager:new(config, deliveryManager)
+local config <const> = CTruckingConfig:new()
+local deliveryManager <const> = CDeliveryManager:new(config)
+local driverManager <const> = CDriverManager:new(config, deliveryManager)
 
-lib.callback.register('alrp:truckJob:clockIn', function(source)
+lib.callback.register('mrp:trucking:clockIn', function(source)
     local driver = driverManager:getDriver(source)
 
     if driver then
@@ -57,7 +57,7 @@ lib.callback.register('alrp:truckJob:truckCollected', function(source)
 
     if not driverRoute then
         warn(('Driver %s just tried to mark their truck as collected but they do not have a route assigned to them. Resetting driver state to waiting for delivery'):format(GetPlayerName(driverIndex)))
-        driver:setState(DriverStates.WAITING_FOR_DELIVERY)
+        driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
         return false, 'TJ_NO_ROUTE_ASSIGNED'
     end
 
@@ -65,20 +65,17 @@ lib.callback.register('alrp:truckJob:truckCollected', function(source)
 
     if not DoesEntityExist(driverTruck) then
         warn(('Driver %s just tried to mark their truck as collected but the truck doesn\'t exist. Resetting driver state to waiting for delivery'):format(GetPlayerName(driverIndex)))
-        driver:setState(DriverStates.WAITING_FOR_DELIVERY)
+        driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
         return false, 'TJ_TRUCK_DOES_NOT_EXIST'
     end
 
     if GetVehiclePedIsIn(driverPed, false) ~= driverTruck then
-        print('driverTruck ', driverTruck)
-        print('currentVehicle', GetVehiclePedIsIn(driverPed, false))
-
         TaskLeaveAnyVehicle(driverPed, 0, 1)
         return false, 'TJ_INCORRECT_TRUCK'
     end
 
     -- Update driver and route state
-    driver:setState(DriverStates.COLLECTING_TRAILER)
+    driver:setStatus(DriverStatus.COLLECTING_TRAILER)
     driverRoute:setState(RouteStates.waitingForTrailer)
 
     return true
@@ -110,7 +107,7 @@ lib.callback.register('alrp:truckJob:trailerCollected', function(source)
     end
 
     -- Update driver and route state
-    driver:setState(DriverStates.DELIVERING_TRAILER)
+    driver:setStatus(DriverStatus.DELIVERING_TRAILER)
     driverRoute:setState(RouteStates.inProgress)
 
     return true
@@ -156,8 +153,7 @@ lib.callback.register('truckJob:trailerDelivered', function(source)
         return false, 'TJ_TRAILER_TOO_FAR'
     end
 
-    -- Update states
-    driver:setState(DriverStates.RETURNING_TO_DEPOT)
+    driver:setStatus(DriverStatus.RETURNING_TO_DEPOT)
     driverRoute:setState(RouteStates.completed)
 
     SetEntityOrphanMode(trailerIndex, 0)
@@ -175,7 +171,6 @@ lib.callback.register('truckJob:truckReturned', function(source)
         return false, 'TJ_NOT_CLOCKED_IN'
     end
 
-    -- Use the new completeDriverDelivery method
     driverManager:completeDriverDelivery(driver)
 
     return true
@@ -192,5 +187,15 @@ RegisterNetEvent('truckJob:driver:forceQuit', function(quitReason)
     lib.logger(source, 'truckJob:driver:forceQuit', ('Driver %s force quit with reason: %s'):format(GetPlayerName(source), quitReason or 'unknown'))
 
     -- Clean up and remove the driver
+    driverManager:removeDriver(driver)
+end)
+
+AddEventHandler('playerDropped', function()
+    local driver = driverManager:getDriver(source)
+
+    if not driver then
+        return
+    end
+
     driverManager:removeDriver(driver)
 end)
