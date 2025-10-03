@@ -8,6 +8,7 @@ Depot = CDepot:new(config)
 RegisterNetEvent('truckJob:deliveryController:routeAssigned', function(routeIndex)
     if routeIndex == RouteTypes.INVALID then
         deliveryController:setRoute(routeIndex)
+        return
     end
 
     local route = deliveryManager:getRouteAtIndex(routeIndex)
