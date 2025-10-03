@@ -1,28 +1,36 @@
 local IS_SERVER <const> = IsDuplicityVersion()
+local HALF_A_SECOND <const> = 500
 local RADAR_TRUCK <const> = 477
 local RADAR_TRAILER <const> = 479
 local GREEN <const> = 2
 
 ---@class CBaseRoute
----@field private private { m_index: number, m_type: RouteTypes, m_name: string, m_state: RouteStates, m_driver: CDriver, m_truckIndex: number, m_trailerIndex: number, m_networkTrailerIndex: number, m_trailerPickUpCoordinate: vector3, m_trailerReturnLocation: vector3 }
+---@field private private { m_index: number, m_type: RouteTypes, m_name: string, m_state: RouteStates, m_driver: CDriver?, m_truckIndex: number, m_trailerIndex: number, m_networkTrailerIndex: number, m_trailerPickUpLocation: TrailerLocation, m_trailerReturnLocation: TrailerLocation }
 CBaseRoute = lib.class('CBaseRoute')
 
 ---@param routeIndex number
----@param routeName string
----@param routeType RouteTypes
----@param trailerCoordinates table
-function CBaseRoute:constructor(routeIndex, routeType, routeName, trailerCoordinates)
+---@param rawRoute table
+function CBaseRoute:constructor(routeIndex, rawRoute)
   self.private.m_index = routeIndex
-  self.private.m_type = routeType
-  self.private.m_name = routeName
-  self.private.m_state = RouteStates.unassigned
 
+  if type(rawRoute?.routeName) ~= 'string' or rawRoute.routeName == '' then
+    error('routeName is missing or empty')
+  end
+
+  self.private.m_name = rawRoute.routeName
+
+  if type(rawRoute?.routeType) ~= 'string' or not RouteTypes[rawRoute.routeType] then
+    error(('routeType %s is not a valid route type'):format(rawRoute?.routeType))
+  end
+
+  self.private.m_type = rawRoute.routeType
+  self.private.m_state = RouteStates.unassigned
   self.private.m_truckIndex = 0
   self.private.m_trailerIndex = 0
   self.private.m_networkTrailerIndex = 0
-  self.private.m_trailerPickUpCoordinate = vector3(0, 0, 0)
 
-  self:setTrailerCoordinates(trailerCoordinates)
+  self:setTrailerPickUpLocation(rawRoute?.trailerPickUpLocation)
+  self:setTrailerReturnLocation(rawRoute?.trailerReturnLocation)
 end
 
 ---Get this routes index in the route manager
@@ -91,6 +99,81 @@ function CBaseRoute:setNetworkTrailerIndex(networkTrailerIndex)
   self.private.m_networkTrailerIndex = networkTrailerIndex
 end
 
+---Get the coordinates and heading for the trailers pick up location
+---@return TrailerLocation
+function CBaseRoute:getTrailerPickUpLocation()
+  return self.private.m_trailerPickUpLocation
+end
+
+---Sets the coordinates and heading for a trailers pick up location
+---@param trailerPickUpLocation TrailerLocation
+function CBaseRoute:setTrailerPickUpLocation(trailerPickUpLocation)
+  if type(trailerPickUpLocation) ~= 'table' then
+    error('trailerPickupLocation must be a table containing an entry for coordinates and heading')
+  end
+
+  if type(trailerPickUpLocation?.coordinates) ~= 'table' then
+    error('trailerPickupLocation is missing the required coordinates entry')
+  end
+
+  if type(trailerPickUpLocation.coordinates?.x) ~= 'number' or type(trailerPickUpLocation.coordinates?.y) ~= 'number' or type(trailerPickUpLocation.coordinates?.z) ~= 'number' then
+    error('trailerPickupLocation coordinates is missing one or more of the required x, y and z values')
+  end
+
+  if type(trailerPickUpLocation?.heading) ~= 'number' then
+    error('trailerPickUpLocation is missing the required numeric heading entry')
+  end
+
+  local trailerPickUpCoordinates, errorMessage = table.vectorize(trailerPickUpLocation.coordinates)
+
+  if not trailerPickUpCoordinates then
+    error(('Failed to vectorize trailer trailerPickUpCoordinates coordinates: %s'):format(errorMessage))
+  end
+
+  self.private.m_trailerPickUpLocation = {
+    coordinates = trailerPickUpCoordinates,
+    heading = trailerPickUpLocation.heading
+  }
+end
+
+---Get the coordinates and heading for the trailers return location
+---@return TrailerLocation
+function CBaseRoute:getTrailerReturnLocation()
+  return self.private.m_trailerReturnLocation
+end
+
+---Sets the coordinates and heading for a trailers return location
+---@param trailerReturnLocation TrailerLocation
+function CBaseRoute:setTrailerReturnLocation(trailerReturnLocation)
+  if type(trailerReturnLocation) ~= 'table' then
+    error('trailerReturnLocation must be a table containing an entry for coordinates and heading')
+  end
+
+  if type(trailerReturnLocation?.coordinates) ~= 'table' then
+    error('trailerReturnLocation is missing the required coordinates entry')
+  end
+
+  if type(trailerReturnLocation.coordinates?.x) ~= 'number' or type(trailerReturnLocation.coordinates?.y) ~= 'number' or type(trailerReturnLocation.coordinates?.z) ~= 'number' then
+    error('trailerReturnLocation coordinates is missing one or more of the required x, y and z values')
+  end
+
+  if type(trailerReturnLocation?.heading) ~= 'number' then
+    error('trailerReturnLocation is missing the required numeric heading entry')
+  end
+
+  local trailerReturnCoordinates, errorMessage = table.vectorize(trailerReturnLocation.coordinates)
+
+  if not trailerReturnCoordinates then
+    error(('Failed to vectorize trailer trailerReturnCoordinates coordinates: %s'):format(errorMessage))
+  end
+
+  self.private.m_trailerReturnLocation = {
+    coordinates = trailerReturnCoordinates,
+    heading = trailerReturnLocation.heading
+  }
+end
+
+
 ---Get the current driver assigned to this route
 ---@return CDriver?
 function CBaseRoute:getDriver()
@@ -100,60 +183,18 @@ function CBaseRoute:getDriver()
 end
 
 ---Set the driver assigned to this route
----@param driver CDriver
+---@param driver CDriver?
 function CBaseRoute:setDriver(driver)
   assert(IS_SERVER, 'setDriver is not implemented on the client')
 
   self.private.m_driver = driver
 end
 
-function CBaseRoute:getTrailerPickUpCoordinate()
-  return self.private.m_trailerPickUpCoordinate
-end
-
-function CBaseRoute:setTrailerPickUpCoordinate(trailerPickUpCoordinate)
-  self.private.m_trailerPickUpCoordinate = trailerPickUpCoordinate
-end
-
-function CBaseRoute:getTrailerReturnLocation()
-  return self.private.m_trailerReturnLocation
-end
-
-function CBaseRoute:setTrailerCoordinates(trailerCoordinates)
-  if type(trailerCoordinates) ~= 'table' then
-    error(
-    'The \'trailerCoordinates\' entry in the route configuration is missing or invalid. Expected a table containing trailer pickup and return locations, but received ' ..
-    type(trailerCoordinates) .. '.')
-  end
-
-  if not trailerCoordinates?.trailerPickUpLocation then
-    error(
-    'The \'trailerCoordinates\' table in the route configuration is missing the required \'trailerPickUpLocation\' entry. This should be a table with x, y, z, and h coordinates.')
-  end
-
-  local trailerPickUpLocation, pickUpLocationError = table.vectorize(trailerCoordinates.trailerPickUpLocation)
-
-  if not trailerPickUpLocation then
-    error(
-    'Failed to process the \'trailerPickUpLocation\' entry in the route configuration. Please ensure it is a valid table with numeric x, y, z, and h coordinates. Error: ' ..
-    (pickUpLocationError or 'Unknown error'))
-  end
-
-  if not trailerCoordinates?.trailerReturnLocation then
-    error(
-    'The \'trailerCoordinates\' table in the route configuration is missing the required \'trailerReturnLocation\' entry. This should be a table with x, y, z, and h coordinates.')
-  end
-
-  local trailerReturnLocation, returnLocationError = table.vectorize(trailerCoordinates.trailerReturnLocation)
-
-  if not trailerReturnLocation then
-    error(
-    'Failed to process the \'trailerReturnLocation\' entry in the route configuration. Please ensure it is a valid table with numeric x, y, z, and h coordinates. Error: ' ..
-    (returnLocationError or 'Unknown error'))
-  end
-
-  self.private.m_trailerPickUpCoordinate = trailerPickUpLocation
-  self.private.m_trailerReturnLocation = trailerReturnLocation
+---Reset route to its orignal unassigned state
+function CBaseRoute:reset()
+  self:setTruckIndex(0)
+  self:setTrailerIndex(0)
+  self:setDriver(nil)
 end
 
 ---Creates a blip for the routes delivery truck
@@ -176,34 +217,29 @@ function CBaseRoute:createTrailerBlip()
 
     -- If the trailer is spawned out of scope create a coordinate based marker until we get within scope of the trailer
     if not NetworkDoesNetworkIdExist(networkTrailerIndex) then
-      local trailerPickUpCoordinate = self:getTrailerPickUpCoordinate()
-      local trailerBlip = AddBlipForCoord(trailerPickUpCoordinate.x, trailerPickUpCoordinate.y, trailerPickUpCoordinate
-      .z)
+      local trailerPickUpLocation = self:getTrailerPickUpLocation()
+      local trailerPickUpCoordinates = trailerPickUpLocation.coordinates
+      local trailerBlip = AddBlipForCoord(trailerPickUpCoordinates.x, trailerPickUpCoordinates.y, trailerPickUpCoordinates.z)
 
       SetBlipSprite(trailerBlip, RADAR_TRAILER)
       SetBlipColour(trailerBlip, GREEN)
       SetBlipName(trailerBlip, 'Post OP Delivery Trailer')
       SetBlipRoute(trailerBlip, true)
 
-      while not NetworkDoesNetworkIdExist(networkTrailerIndex) do
-        Wait(0)
+      while not NetworkDoesNetworkIdExist(networkTrailerIndex) and self:getState() == RouteStates.inProgress do
+        Wait(HALF_A_SECOND)
       end
 
       RemoveBlip(trailerBlip)
     end
 
     local trailerIndex = NetworkGetEntityFromNetworkId(networkTrailerIndex)
-
-    if not DoesEntityExist(trailerIndex) then
-      error('this should never happen')
-    end
-
-    self:setTrailerIndex(trailerIndex)
-
     local trailerBlip = AddBlipForEntity(trailerIndex)
 
     SetBlipSprite(trailerBlip, RADAR_TRAILER)
     SetBlipColour(trailerBlip, GREEN)
     SetBlipName(trailerBlip, 'Post OP Delivery Trailer')
+
+    self:setTrailerIndex(trailerIndex)
   end)
 end
