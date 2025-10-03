@@ -1,10 +1,16 @@
-Config = CConfigStore:new()
-Depot = CDepot:new(Config:getDepotBlipCoordinates())
+local FIVE_SECONDS <const> = 5000
+local config <const> = CTruckingConfig:new()
+local deliveryManager <const> = CDeliveryManager:new(config)
+local deliveryController <const> = CDeliveryController:new(config)
 
-local deliveryController <const> = CDeliveryController:new(Config)
+Depot = CDepot:new(config)
 
 RegisterNetEvent('truckJob:deliveryController:routeAssigned', function(routeIndex)
-    local route = Config:getRouteAtIndex(routeIndex)
+    if routeIndex == RouteTypes.INVALID then
+        deliveryController:setRoute(routeIndex)
+    end
+
+    local route = deliveryManager:getRouteAtIndex(routeIndex)
 
     if not route then
         warn(('Failed to set route index for delivery controller %s is not a valid route index'):format(routeIndex))
@@ -16,21 +22,24 @@ RegisterNetEvent('truckJob:deliveryController:routeAssigned', function(routeInde
 end)
 
 RegisterNetEvent('truckJob:deliveryController:truckAssigned', function(networkTruckIndex)
-    if not NetworkDoesNetworkIdExist(networkTruckIndex) then
-        error('The specified network truck index does not exist in the player\'s scope. This should not happen as the truck should be in the depot nearby.')
-    end
-
-    if not NetworkDoesEntityExistWithNetworkId(networkTruckIndex) then
-        error('No entity exists with the provided network truck index. Ensure the correct entity handle was passed.')
-    end
-
-    local truckIndex = NetworkGetEntityFromNetworkId(networkTruckIndex)
     local route = deliveryController:getRoute()
 
-    -- This also should never 
     if not route then
         error('No route assigned can not set truck index')
     end
+
+    local timeout = GetGameTimer() + FIVE_SECONDS
+
+    while not NetworkDoesNetworkIdExist(networkTruckIndex) == 0 and timeout < FIVE_SECONDS do
+        Wait(0)
+    end
+
+    if not NetworkDoesNetworkIdExist(networkTruckIndex) then
+        warn('Delivery route truck does not exist after five seconds')
+        return
+    end
+
+    local truckIndex = NetworkGetEntityFromNetworkId(networkTruckIndex)
 
     route:setTruckIndex(truckIndex)
     route:setState(RouteStates.waitingForTrailer)
@@ -48,14 +57,6 @@ RegisterNetEvent('truckJob:deliveryController:trailerAssigned', function(network
     route:setState(RouteStates.ready)
     route:setNetworkTrailerIndex(networkTrailerIndex)
     route:performRouteTasks()
-end)
-
-RegisterNetEvent('truckJob:deliveryController:setClockedIn', function(state)
-    deliveryController:setClockedIn(state)
-end)
-
-RegisterNetEvent('truckJob:deliveryController:setTrailerLocation', function(coordinates)
-    deliveryController:setTrailerLocation(coordinates)
 end)
 
 AddEventHandler('onClientResourceStart', function(resourceName)
