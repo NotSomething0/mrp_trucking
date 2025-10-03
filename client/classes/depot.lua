@@ -1,15 +1,21 @@
 ---@class CDepot
----@field private private {  m_config: CConfigStore, m_blip: number, m_interactionPoint: CPoint }
+---@field private private {  m_config: CTruckingConfig, m_blip: number, m_interactionPoint: CPoint }
 CDepot = lib.class('CDepot')
 
 ---Create a new instance of CDepot
----@param config CConfigStore
+---@param config CTruckingConfig
 function CDepot:constructor(config)
   self.private.m_config = config
   self.private.m_blip = self:createBlip()
 
   self:updateBlip()
   self:createInteractionPed()
+end
+
+---Get the config for the depot
+---@return CTruckingConfig
+function CDepot:getConfig()
+  return self.private.m_config
 end
 
 ---Get the blip for the depot
@@ -64,15 +70,20 @@ function CDepot:updateBlip()
   })
 end
 
+
+---@return vector3 truckSpawn
 function CDepot:getTruckReturnCoordinate()
+  local config = self:getConfig()
   local truckSpawns = config:getTruckSpawns()
   local truckReturnCoordinate = vector3(0, 0, 0)
 
   for index = 1, #truckSpawns do
     local spawn = truckSpawns[index]
     local spawnFree = true
+    local vehiclePool = GetGamePool('CVehicle')
 
-    for _, vehicleIndex in pairs(GetGamePool('CVehicle')) do
+    for poolIndex = 1, #vehiclePool do
+      local vehicleIndex = vehiclePool[poolIndex]
       local vehicleCoords = GetEntityCoords(vehicleIndex)
 
       if #(spawn.coordinate - vehicleCoords) <= 4 then
