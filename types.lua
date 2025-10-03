@@ -1,6 +1,7 @@
 ---@diagnostic disable: missing-return
 
----@alias CDeliveryRoute CRoutePointToPoint|CRouteMultiPointFueling
+---@alias TrailerLocation { coordinates: vector3, heading: number }
+---@alias CDeliveryRoute CRoutePointToPoint|CRouteMultiPointFueling|false
 
 ---Create a new instance of CDepot
 ---@see CDepot.constructor
@@ -48,11 +49,9 @@ function CDriver:new(playerIndex) end
 ---Create a new instance of CBaseRoute
 ---@see CBaseRoute.constructor
 ---@param routeIndex number
----@param routeType RouteTypes
----@param routeName string
----@param trailerCoordinates table
+---@param rawRoute table
 ---@return CBaseRoute baseRoute
-function CBaseRoute:new(routeIndex, routeType, routeName, trailerCoordinates) end
+function CBaseRoute:new(routeIndex, rawRoute) end
 
 ---Create a new instance of CRoutePointToPoint
 ---@see CRoutePointToPoint.constructor 
