@@ -1,6 +1,6 @@
 local IS_SERVER <const> = IsDuplicityVersion()
 local CONFIG_DEFAULTS <const> = {
-  PED_MODEL = `s_m_m_ups_01`,
+  PED_MODEL = 's_m_m_ups_01',
   PED_COORDINATES = vector3(-494.58, -2910.04, 5.00),
   PED_HEADING = 225.24,
 
@@ -35,11 +35,27 @@ local CONFIG_DEFAULTS <const> = {
     { coordinate = vector3(326.93, 3422.85, 36.59), heading = 45.1 },
     { coordinate = vector3(324.74, 3420.49, 36.65), heading = 45.1 }
   },
-  DELIVERY_DROP_POINTS = {
-    --{ coordinate = vector3(-3169.63, 1102.37, 20.74), heading = },
-    --{ coordinate = vector3(31.54, 6287.21, 31.24), heading = } ,
-    --{ coordinate = vector3(-360.2, 6073.27, 31.5), heading = } ,
-    --{ coordinate = vector3(3640.62, 3766.41, 28.52), heading = }
+  DELIVERY_ROUTES = {
+    {
+      routeType = 'POINT_TO_POINT',
+      routeName = 'Default point to point',
+      trailerPickUpLocation = {
+        coordinates = {
+          x = -483.49,
+          y = -2824.99,
+          z = 6
+        },
+        heading = 43.66
+      },
+      trailerReturnLocation = {
+        coordinates = {
+          x = -372.51,
+          y = -2800.28,
+          z = 6
+        },
+        heading = 136
+      },
+    },
   }
 }
 
@@ -56,34 +72,35 @@ function CTruckingConfig:constructor()
   self.private.trailerSpawns = {}
   self.private.m_deliveryRoutes = {}
 
-  self:setDepotPedModel()
-  self:setDepotPedCoordinates()
-  self:setDepotPedHeading()
+  if not IS_SERVER then
+    self:setDepotPedModel()
+    self:setDepotPedCoordinates()
+    self:setDepotPedHeading()
+    self:setDepotBlipCoordinates()
+  end
 
-  self:setDepotPedCoordinates()
-  self:setDepotBlipCoordinates()
-  self:setDepotPedHeading()
-  self:setTrailerSpawnLocations()
-  self:setTruckSpawnLocations()
-  self:setTruckModels()
-  self:setTrailerModels()
-  self:setPayoutRates()
-  self:_setDeliveryRoutes()
+  if IS_SERVER then
+    self:setTruckModels()
+    self:setTrailerModels()
+  end
+
+  self:setTruckSpawnCoordinates()
+  self:setDeliveryRoutes()
 end
 
+---Get the depot ped model
 ---@return number pedModelHash
 function CTruckingConfig:getDepotPedModel()
-  ---@diagnostic disable-next-line: missing-return-value
-  if IS_SERVER then return end
+  assert(not IS_SERVER, 'CTruckingConfig:getDepotPedMode is only available on the client')
 
   return self.private.m_depotPedModel
 end
 
----comment
+---Set the depot ped model
 function CTruckingConfig:setDepotPedModel()
-  if IS_SERVER then return end
+  assert(not IS_SERVER, 'CTruckingConfig:setDepotPedModel is only avaliable on the client')
 
-  local pedModel = GetConvar('truckJob:depotPedModel', CONFIG_DEFAULTS.PED_MODEL)
+  local pedModel = GetConvar('mrp:trucking:depotPedModel', CONFIG_DEFAULTS.PED_MODEL)
 
   if not IsModelInCdimage(pedModel) or not IsModelAPed(pedModel) then
     warn('CTruckingConfig:setDepotPedModel: %s is not a valid ped model. Falling back on default ped model "s_m_m_ups_01"')
@@ -93,47 +110,56 @@ function CTruckingConfig:setDepotPedModel()
   self.private.m_depotPedModel = GetHashKey(pedModel)
 end
 
+---Set the coordinates for the depot ped
 function CTruckingConfig:setDepotPedCoordinates()
-  local pedLocation = GetConvarVector('truckJob:depotPedLocation', CONFIG_DEFAULTS.PED_COORDINATES)
+  assert(not IS_SERVER, 'CTruckingConfig:setDepotPedCoordinates is only avaliable on the client')
 
-  if type(pedLocation) ~= 'vector3' then
-    error('Failed to set depot ped coordinates')
-  end
-
-  self.private.m_depotPedCoordinates = pedLocation
+  self.private.m_depotPedCoordinates = GetConvarVector('mrp:trucking:depotPedCoordinates', CONFIG_DEFAULTS.PED_COORDINATES)
 end
 
+---Get the depot ped coordinates 
 ---@return vector3 pedCoordinates
 function CTruckingConfig:getDepotPedCoordinates()
+  assert(not IS_SERVER, 'CTruckingConfig:getDepotPedCoordinates is only avaliable on the client')
+
   return self.private.m_depotPedCoordinates
 end
 
 function CTruckingConfig:setDepotPedHeading()
-  local pedHeading = GetConvarFloat('truckJob:depotPedHeading', 225.24)
+  assert(not IS_SERVER, 'CTruckingConfig:setDepotPedHeading is only avaliable on the client')
+
+  local pedHeading = GetConvarFloat('mrp:trucking:depotPedHeading', CONFIG_DEFAULTS.PED_HEADING)
 
   self.private.m_depotPedHeading = pedHeading
 end
 
+---Get the heading for the depot ped
+---@return number pedHeading
 function CTruckingConfig:getDepotPedHeading()
+  assert(not IS_SERVER, 'CTruckingConfig:getDepotPedHeading is only avaliable on the client')
+
   return self.private.m_depotPedHeading
 end
 
+---Set the depot blip coordinates
 function CTruckingConfig:setDepotBlipCoordinates()
-  self.private.m_depotBlipCoordinates = GetConvarVector('truckJob:depotBlipLocation',
-    CONFIG_DEFAULTS.DEPOT_BLIP_COORDINATES)
+  assert(not IS_SERVER, 'CTruckingConfig:setDepotBlipCoordinates is only avaliable on the client')
+
+  self.private.m_depotBlipCoordinates = GetConvarVector('mrp:trucking:depotBlipCoordinates', CONFIG_DEFAULTS.DEPOT_BLIP_COORDINATES)
 end
 
----comment
+---Get the depot blip coordinates
 ---@return vector3
 function CTruckingConfig:getDepotBlipCoordinates()
+  assert(not IS_SERVER, 'CTruckingConfig:getDepotBlipCoordinates is only avaliable on the client')
+
   return self.private.m_depotBlipCoordinates
 end
 
----Gets a random truck model hash from the loaded truck models.
+---Get a random truck model hash from the loaded truck models.
 ---@return number # The hash of a randomly selected truck model.
 function CTruckingConfig:getRandomTruckModel()
-  ---@diagnostic disable-next-line: missing-return-value
-  if not IS_SERVER then return end
+  assert(IS_SERVER, 'CTruckingConfig:getRandomTruckModel is only available on the server')
 
   local truckModels = self.private.truckModels
 
@@ -148,26 +174,21 @@ end
 
 ---Sets the truck models by loading them from the configuration using a Convar.
 function CTruckingConfig:setTruckModels()
-  if not IS_SERVER then return end
+  assert(IS_SERVER, 'CTruckingConfig:setTruckModels is only available on the server')
 
-  local truckModels = GetConvarArray('truckJob:truckModels', CONFIG_DEFAULTS.TRAILER_MODELS)
+  local truckModels = GetConvarArray('mrp:trucking:truckModels', CONFIG_DEFAULTS.TRAILER_MODELS)
 
-  if #self.private.truckModels >= 1 then
-    table.clear(self.private.truckModels)
-  end
-
-  for index = 1, #truckModels do
-    local model = truckModels[index]
+  for truckModelIndex = 1, #truckModels do
+    local model = truckModels[truckModelIndex]
 
     table.insert(self.private.truckModels, model)
   end
 end
 
----Gets a random trailer model hash from the loaded trailer models.
----@return number # The hash of a randomly selected trailer model.
+---Get a random trailer model hash
+---@return number trailerModels
 function CTruckingConfig:getRandomTrailerModel()
-  ---@diagnostic disable-next-line: missing-return-value
-  if not IS_SERVER then return end
+  assert(IS_SERVER, 'CTruckingConfig:getRandomTrailerModel is only available on the server')
 
   local trailerModels = self.private.trailerModels
 
@@ -182,18 +203,9 @@ end
 
 ---Sets the trailer models by loading them from the configuration using a Convar.
 function CTruckingConfig:setTrailerModels()
-  ---@diagnostic disable-next-line: missing-return-value
-  if not IS_SERVER then return end
+  assert(IS_SERVER, 'CTruckingConfig:setTrailerModels is only available on the server')
 
-  local trailerModels = GetConvarArray('truckJob:trailerModels', CONFIG_DEFAULTS.TRAILER_MODELS)
-
-  if not trailerModels then
-    error('Failed to parse alrp:truckJob:trailerModels, check your configuration file and restart the resource.')
-  end
-
-  if #self.private.trailerModels >= 1 then
-    table.clear(self.private.trailerModels)
-  end
+  local trailerModels = GetConvarArray('mrp:trucking:trailerModels', CONFIG_DEFAULTS.TRAILER_MODELS)
 
   for index = 1, #trailerModels do
     local model = trailerModels[index]
@@ -209,12 +221,8 @@ function CTruckingConfig:getTruckSpawns()
 end
 
 ---Sets the truck spawn locations by loading them from the configuration using a Convar.
-function CTruckingConfig:setTruckSpawnLocations()
-  local truckSpawns = GetConvarVectorWithHeading('truckJob:truckSpawnLocations', CONFIG_DEFAULTS.TRUCK_SPAWNS)
-
-  if #self.private.truckSpawns >= 1 then
-    table.clear(self.private.truckSpawns)
-  end
+function CTruckingConfig:setTruckSpawnCoordinates()
+  local truckSpawns = GetConvarVectorWithHeading('mrp:trucking:truckSpawnLocations', CONFIG_DEFAULTS.TRUCK_SPAWNS)
 
   for index = 1, #truckSpawns do
     local spawn = truckSpawns[index]
@@ -228,91 +236,29 @@ function CTruckingConfig:setTruckSpawnLocations()
   end
 end
 
----Gets the trailer spawn locations stored in the configuration.
----@return table # A table containing the trailer spawn locations with position and heading.
-function CTruckingConfig:getTrailerSpawns()
-  return self.private.trailerSpawns
-end
-
----Sets the trailer spawn locations by loading them from the configuration using a Convar.
-function CTruckingConfig:setTrailerSpawnLocations()
-  local trailerSpawns = GetConvarVectorWithHeading('truckJob:trailerSpawnLocations', CONFIG_DEFAULTS.TRAILER_SPAWNS)
-
-  table.clear(self.private.trailerSpawns)
-
-  for trailerSpawnIndex = 1, #trailerSpawns do
-    local trailerSpawn = trailerSpawns[trailerSpawnIndex]
-
-    table.insert(self.private.trailerSpawns, trailerSpawn)
-  end
-end
-
-function CTruckingConfig:getRandomDeliveryRoute()
-  local deliveryRoutes = self.private.m_deliveryRoutes
-  local deliveryRouteIndex = math.random(#deliveryRoutes)
-
-  return self.private.m_deliveryRoutes[deliveryRouteIndex]
-end
-
-function CTruckingConfig:getPayPerDelivery()
-  --return self.private.m_payPerDelivery
-end
-
-function CTruckingConfig:getPayPerMile()
-  --return self.private.m_payPerMile
-end
-
--- Method to set payout multipliers from the configuration
-function CTruckingConfig:setPayoutRates()
-  if not IS_SERVER then return end
-
-  --self.private.m_payPerDelivery = GetConvarFloat('truckJob:payPerDelivery', 50.0)
-  --self.private.m_payPerMile = GetConvarFloat('truckJob:payPerMile', 50.0)
-end
-
----Gets the route at the specified index
----@param index number
----@return CDeliveryRoute
-function CTruckingConfig:getRouteAtIndex(index)
-  local route = self.private.m_deliveryRoutes[index]
-
-  return route
-end
-
-function CTruckingConfig:_getDeliveryRoutes()
+---Get raw delivery routes
+---@return table
+function CTruckingConfig:getDeliveryRoutes()
   return self.private.m_deliveryRoutes
 end
 
----comment
-function CTruckingConfig:_setDeliveryRoutes()
-  local rawRoutes = GetConvar('truckJob:_deliveryRoutes', 'default')
+---Set raw delivery routes
+function CTruckingConfig:setDeliveryRoutes()
+  local rawRoutes = GetConvar('mrp:trucking:deliveryRoutes', 'default')
 
   if rawRoutes == 'default' then
-    warn('CTruckingConfig:setDeliveryRoutes is unset falling back to default routes.')
-    self.private.m_deliveryRoutes = CONFIG_DEFAULTS.DELIVERY_DROP_POINTS
+    warn('CTruckingConfig:setDeliveryRoutes mrp:trucking:deliveryRoutes is unset falling back to default routes.')
+    self.private.m_deliveryRoutes = CONFIG_DEFAULTS.DELIVERY_ROUTES
     return
   end
 
   local routesDecoded = json.decode(rawRoutes)
 
   if not routesDecoded then
-    warn('CTruckingConfig:setDeliveryRoutes could not decode truckJob:_deliveryRoutes falling back to default routes.')
-    self.private.m_deliveryRoutes = CONFIG_DEFAULTS.DELIVERY_DROP_POINTS
+    warn('CTruckingConfig:setDeliveryRoutes could not decode mrp:trucking:deliveryRoutes falling back to default routes.')
+    self.private.m_deliveryRoutes = CONFIG_DEFAULTS.DELIVERY_ROUTES
     return
   end
 
-  local routeFactory = CRouteFactory:new()
-
-  self.private.m_deliveryRoutes = {}
-
-  for routeIndex, routeData in ipairs(routesDecoded) do
-    local route, errorMessage = try(routeFactory.createRoute, routeIndex, routeData.routeType, routeData.routeName, routeData.trailerCoordinates,
-    routeData.routeTrailerModel)
-
-    if not errorMessage  then
-      table.insert(self.private.m_deliveryRoutes, route)
-    else
-      warn(('Failed to create route %s at index %d: %s'):format(routeData.routeName, routeIndex, errorMessage))
-    end
-  end
+  self.private.m_deliveryRoutes = routesDecoded
 end
