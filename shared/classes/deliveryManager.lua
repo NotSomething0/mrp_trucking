@@ -67,7 +67,7 @@ function CDeliveryManager:getAssignedRoutes()
 end
 
 ---Get a random free truck spawn point
----@return vector3|false truckSpawnPoint
+---@return TruckLocation|false
 function CDeliveryManager:getFreeTruckSpawn()
   local truckSpawns = self.private.m_config:getTruckSpawns()
 
@@ -83,7 +83,7 @@ function CDeliveryManager:getFreeTruckSpawn()
       local coordinates = GetEntityCoords(vehicle)
 
       -- Break there's a vehicle in the way
-      if #(coordinates - truckSpawn.coordinate) <= 5 then
+      if #(coordinates - truckSpawn.coordinates) <= 5 then
         isSpawnFree = false
         break
       end
