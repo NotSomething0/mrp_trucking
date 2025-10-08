@@ -1,7 +1,8 @@
 ---@diagnostic disable: missing-return
 
+---@alias TruckLocation { coordinates: vector3, heading: number }
 ---@alias TrailerLocation { coordinates: vector3, heading: number }
----@alias CDeliveryRoute CRoutePointToPoint|CRouteMultiPointFueling|false
+---@alias CDeliveryRoute CRoutePointToPoint|CRouteMultiPointFueling
 
 ---Create a new instance of CDepot
 ---@see CDepot.constructor
@@ -56,8 +57,9 @@ function CBaseRoute:new(routeIndex, rawRoute) end
 ---Create a new instance of CRoutePointToPoint
 ---@see CRoutePointToPoint.constructor 
 ---@param baseRoute CBaseRoute
+---@param rawRoute table
 ---@return CRoutePointToPoint route
-function CRoutePointToPoint:new(baseRoute) end
+function CRoutePointToPoint:new(baseRoute, rawRoute) end
 
 ---Create a new instance of CRouteMultiPointFueling
 ---@see CRouteMultiPointFueling.constructor
