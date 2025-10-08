@@ -226,7 +226,7 @@ function CBaseRoute:createTrailerBlip()
       SetBlipName(trailerBlip, 'Post OP Delivery Trailer')
       SetBlipRoute(trailerBlip, true)
 
-      while not NetworkDoesNetworkIdExist(networkTrailerIndex) and self:getState() == RouteStates.inProgress do
+      while not NetworkDoesNetworkIdExist(networkTrailerIndex) do
         Wait(HALF_A_SECOND)
       end
 
@@ -239,6 +239,7 @@ function CBaseRoute:createTrailerBlip()
     SetBlipSprite(trailerBlip, RADAR_TRAILER)
     SetBlipColour(trailerBlip, GREEN)
     SetBlipName(trailerBlip, 'Post OP Delivery Trailer')
+    SetBlipRoute(trailerBlip, true)
 
     self:setTrailerIndex(trailerIndex)
   end)
