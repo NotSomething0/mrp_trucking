@@ -1,8 +1,8 @@
 ---@class CDriverManager
----@field private private { m_config: CConfigStore, m_deliveryManager: CDeliveryManager, m_drivers: table } 
+---@field private private { m_config: CTruckingConfig, m_deliveryManager: CDeliveryManager, m_drivers: table } 
 CDriverManager = lib.class('CDriverManager')
 
----@param config CConfigStore
+---@param config CTruckingConfig
 ---@param deliveryManager CDeliveryManager
 function CDriverManager:constructor(config, deliveryManager)
   self.private.m_config = config
@@ -10,24 +10,21 @@ function CDriverManager:constructor(config, deliveryManager)
   self.private.m_drivers = {}
 end
 
----Check if a driver exists in the driver pool
----@param playerIndex number
----@return boolean exists
-function CDriverManager:doesDriverExist(playerIndex)
-  return self.private.m_drivers[playerIndex] ~= nil
+---@return CTruckingConfig
+function CDriverManager:getConfig()
+  return self.private.m_config
+end
+
+---@return CDeliveryManager
+function CDriverManager:getRouteManager()
+  return self.private.m_deliveryManager
 end
 
 ---Gets the specified driver 
 ---@param playerIndex number
----@return CDriver? driver
+---@return CDriver|false driver
 function CDriverManager:getDriver(playerIndex)
-  return self.private.m_drivers[playerIndex]
-end
-
----Gets the entire driver pool
----@return table<CDriver>
-function CDriverManager:getDrivers()
-  return self.private.m_drivers
+  return self.private.m_drivers[playerIndex] or false
 end
 
 ---Adds a driver to the driver pool
@@ -49,20 +46,22 @@ end
 ---@param driver CDriver
 function CDriverManager:removeDriver(driver)
   local playerIndex = driver:getPlayerIndex()
-
+  local driverRoute = driver:getDeliveryRoute()
   local driverTruck = driver:getTruckIndex()
   local driverTrailer = driver:getTrailerIndex()
 
   if DoesEntityExist(driverTruck) then
     DeleteEntity(driverTruck)
-  else
-    print('Drivers truck does not exist?? ', driverTruck)
   end
 
   if DoesEntityExist(driverTrailer) then
     DeleteEntity(driverTrailer)
-  else
-    print('Trailer does not exist? ' .. driverTrailer)
+  end
+
+  if driverRoute ~= RouteTypes.INVALID then
+    local routeManager = self:getRouteManager()
+
+    routeManager:makeRouteAvaliable(driverRoute)
   end
 
   self.private.m_drivers[playerIndex] = nil
@@ -72,40 +71,154 @@ end
 ---@param driver CDriver
 ---@return boolean success, string? errorMessage
 function CDriverManager:assignDriverRoute(driver)
-  if driver:getDeliveryRoute() then
+  local driverCurrentRoute = driver:getDeliveryRoute()
+
+  if driverCurrentRoute then
     return false, 'TJ_DRIVER_ALREADY_HAS_ROUTE'
   end
-  
-  local route = self.private.m_deliveryManager:getAvailableRoute()
 
-  if not route then
+  local routeManager = self:getRouteManager()
+  local nextRoute = routeManager:getAvailableRoute()
+
+  if not nextRoute then
     return false, 'TJ_NO_ROUTES_AVAILABLE'
   end
 
   -- Set the driver on the route and route on the driver
-  route:setDriver(driver)
-  driver:routeAssigned(route)
+  nextRoute:setDriver(driver)
+  driver:routeAssigned(nextRoute)
 
   -- Create and assign vehicles
   local truckSuccess, truckError = self:assignDriverTruck(driver)
   if not truckSuccess then
     -- Cleanup and return route to pool
-    self.private.m_deliveryManager:removeAssignedRoute(route)
-    driver:setDeliveryRoute(nil)  --- @todo: we really shouldn't be calling a private function but this is a later problem
+    routeManager:makeRouteAvaliable(nextRoute)
+    driver:setDeliveryRoute(nil)
     return false, truckError
   end
 
   local trailerSuccess, trailerError = self:assignDriverTrailer(driver)
   if not trailerSuccess then
     -- Cleanup truck and return route to pool
-    local truck = route:getTruckIndex()
+    local truck = nextRoute:getTruckIndex()
     if DoesEntityExist(truck) then
       DeleteEntity(truck)
     end
-    self.private.m_deliveryManager:removeAssignedRoute(route)
+    routeManager:makeRouteAvaliable(nextRoute)
     driver:setDeliveryRoute(nil)
     return false, trailerError
   end
+
+  return true
+end
+
+---Create a truck for the driver
+---@param driver CDriver
+---@param truckModel string?
+---@return table|false truck, string? errorMessage
+function CDriverManager:createDriverTruck(driver, truckModel)
+  local route = driver:getDeliveryRoute()
+
+  if not route then
+    return false, 'TJ_NO_ROUTE_ASSIGNED'
+  end
+
+  local routeManager = self:getRouteManager()
+  local truckSpawn = routeManager:getFreeTruckSpawn()
+
+  if not truckSpawn then
+    return false, 'TJ_NO_TRK_SPAWN'
+  end
+
+  if not truckModel or truckModel == '' then
+    local config = self:getConfig()
+    truckModel = config:getRandomTruckModel()
+  end
+
+  local truck, truckCreationError = try(Ox.CreateVehicle, {model = truckModel}, truckSpawn.coordinates, truckSpawn.heading)
+
+  if truckCreationError then
+    warn(truckCreationError)
+    return false, 'TJ_TRUCK_CREATION_FAILED'
+  end
+
+  return truck
+end
+
+---Create a trailer for the driver
+---@param driver CDriver Driver to create the trailer for
+---@param trailerModel string? Optionally pass a trailer model or get a random trailer model if no model is specified
+---@return OxVehicleServer|false trailer The trailer that was created or false if the trailer failed to create
+---@return string? trailerCreationError Why the trailer failed to create
+function CDriverManager:createDriverTrailer(driver, trailerModel)
+  local route = driver:getDeliveryRoute()
+
+  if not route then
+    return false, 'TJ_NO_ROUTE_ASSIGNED'
+  end
+
+  if not trailerModel or trailerModel == '' then
+    local config = self:getConfig()
+    trailerModel = config:getRandomTrailerModel()
+  end
+
+  local trailerPickUpLocation = route:getTrailerPickUpLocation()
+  local trailer, trailerCreationError = try(Ox.CreateVehicle, {model = trailerModel,}, trailerPickUpLocation.coordinates, trailerPickUpLocation.heading)
+
+  if trailerCreationError then
+    warn(trailerCreationError)
+    return false, 'TJ_TRAILER_CREATION_FAILED'
+  end
+
+  return trailer
+end
+
+---Assign a truck to the driver
+---@param driver CDriver
+---@return boolean success, string? errorMessage
+function CDriverManager:assignDriverTruck(driver)
+  local truck, errorMessage = self:createDriverTruck(driver)
+
+  if not truck then
+    driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
+    TriggerClientEvent('mrp:trucking:displayHelpText', driver:getPlayerIndex(), errorMessage)
+    return false, errorMessage
+  end
+
+  local driverRoute = driver:getDeliveryRoute()
+
+  if not driverRoute then
+    DeleteEntity(truck.entity)
+    driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
+    return false, 'TJ_NO_ROUTE_ASSIGNED'
+  end
+
+  driver:setTruckIndex(truck.entity)
+  driverRoute:setTruckIndex(truck.entity)
+
+  -- Give the truck a chance to settle in the sync tree otherwise NetworkGetEntityFromNetworkId and NetworkGetEntityFromNetworkId become super inconsistent
+  Wait(1000)
+
+  TriggerClientEvent('mrp:trucking:truckAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(truck.entity))
+
+  return true
+end
+
+---Assign a trailer to the driver
+---@param driver CDriver
+---@return boolean success, string? errorMessage
+function CDriverManager:assignDriverTrailer(driver)
+  local trailer, errorMessage = self:createDriverTrailer(driver)
+
+  if not trailer then
+    driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
+    TriggerClientEvent('mrp:trucking:displayHelpText', driver:getPlayerIndex(), errorMessage)
+    return false, errorMessage
+  end
+
+  driver:setTrailerIndex(trailer.entity)
+
+  TriggerClientEvent('mrp:trucking:trailerAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(trailer.entity))
 
   return true
 end
@@ -122,122 +235,15 @@ function CDriverManager:completeDriverDelivery(driver)
 
   route:setState(RouteStates.completed)
 
-  -- Reset driver state
-  ---@todo: We should probably use something else instead of nil
   driver:completeRoute()
-end
-
----Create a truck for the driver
----@param driver CDriver
----@return table|false truck, string? errorMessage
-function CDriverManager:createDriverTruck(driver)
-  local route = driver:getDeliveryRoute()
-
-  if not route then
-    return false, 'TJ_NO_ROUTE_ASSIGNED'
-  end
-
-  local truckSpawn = self.private.m_deliveryManager:getFreeTruckSpawn()
-
-  if not truckSpawn then
-    return false, 'TJ_NO_TRK_SPAWN'
-  end
-
-  local truck = Ox.CreateVehicle({
-    model = self.private.m_config:getRandomTruckModel(),
-  }, truckSpawn.coordinate, truckSpawn.heading)
-
-  local truckIndex = truck?.entity
-
-  if not truckIndex or not DoesEntityExist(truckIndex) then
-    return false, 'TJ_TRUCK_CREATION_FAILED'
-  end
-
-  SetEntityHeading(truckIndex, truckSpawn.heading)
-
-  return truck
-end
-
----Create a trailer for the driver
----@param driver CDriver
----@return table|false trailer, string? errorMessage
-function CDriverManager:createDriverTrailer(driver)
-  local route = driver:getDeliveryRoute()
-
-  if not route then 
-    return false, 'TJ_NO_ROUTE_ASSIGNED'
-  end
-
-  local trailerModel = self.private.m_config:getRandomTrailerModel()
-  local trailerPickUpCoordinate = route:getTrailerPickUpCoordinate()
-
-  if not trailerPickUpCoordinate then
-    return false, 'TJ_NO_TRAILER_COORDINATES'
-  end
-
-  local trailer = Ox.CreateVehicle({model = trailerModel,}, trailerPickUpCoordinate, trailerPickUpCoordinate.h)
-
-  if not trailer?.entity or not DoesEntityExist(trailer.entity) then
-    return false, 'TJ_TRAILER_CREATION_FAILED'
-  end
-
-  return trailer
-end
-
----Assign a truck to the driver
----@param driver CDriver
----@return boolean success, string? errorMessage
-function CDriverManager:assignDriverTruck(driver)
-  local truck, errorMessage = self:createDriverTruck(driver)
-
-  if not truck then
-    driver:setState(DriverStates.WAITING_FOR_DELIVERY)
-    TriggerClientEvent('truckJob:deliveryController:displayHelpText', driver:getPlayerIndex(), errorMessage)
-    return false, errorMessage
-  end
-
-  local driverRoute = driver:getDeliveryRoute()
-
-  if not driverRoute then
-    DeleteEntity(truck.entity)
-    driver:setState(DriverStates.WAITING_FOR_DELIVERY)
-    return false, 'TJ_NO_ROUTE_ASSIGNED'
-  end
-
-  driver:setTruckIndex(truck.entity)
-  driverRoute:setTruckIndex(truck.entity)
-
-  Wait(0) -- arbitrary wait I guess??? 
-  TriggerClientEvent('truckJob:deliveryController:truckAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(truck.entity))
-
-  return true
-end
-
----Assign a trailer to the driver
----@param driver CDriver
----@return boolean success, string? errorMessage
-function CDriverManager:assignDriverTrailer(driver)
-  local trailer, errorMessage = self:createDriverTrailer(driver)
-
-  if not trailer then
-    driver:setState(DriverStates.WAITING_FOR_DELIVERY)
-    TriggerClientEvent('truckJob:deliveryController:displayHelpText', driver:getPlayerIndex(), errorMessage)
-    return false, errorMessage
-  end
-
-  driver:setTrailerIndex(trailer.entity)
-
-  TriggerClientEvent('truckJob:deliveryController:trailerAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(trailer.entity))
-  
-  return true
 end
 
 ---Process all drivers and assign routes to waiting drivers
 function CDriverManager:processWaitingDrivers()
   for _, driver in pairs(self.private.m_drivers) do
-    if driver:getState() == DriverStates.WAITING_FOR_DELIVERY then
+    if driver:getStatus() == DriverStatus.WAITING_FOR_DELIVERY then
       local success, errorMessage = self:assignDriverRoute(driver)
-      
+
       if not success and errorMessage ~= 'TJ_NO_ROUTES_AVAILABLE' then
         -- Log non-route-availability errors
         warn(('Failed to assign route to driver %s: %s'):format(driver:getPlayerIndex(), errorMessage))
@@ -263,5 +269,5 @@ function CDriverManager:payOutDriver(driver)
   local payout = math.random(1000, 5000)
   local success = playerAccount.addBalance({amount = payout, message = 'Post OP Salary/Regular Income'})
 
-  TriggerClientEvent('truckJob:deliveryController:displayHelpText', playerIndex, 'TJ_PAYMENT_RECIEVE', {driver:getCompletedDeliveries(), payout})
+  TriggerClientEvent('mrp:trucking:displayHelpText', playerIndex, 'TJ_PAYMENT_RECIEVE', {driver:getCompletedDeliveries(), payout})
 end
