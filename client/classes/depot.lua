@@ -27,7 +27,8 @@ end
 ---Create a blip for the depot
 ---@return number blip
 function CDepot:createBlip()
-  local blipCoordinates = self.private.m_config:getDepotBlipCoordinates()
+  local config = self:getConfig()
+  local blipCoordinates = config:getDepotBlipCoordinates()
   local blip = AddBlipForCoord(blipCoordinates.x, blipCoordinates.y, blipCoordinates.z)
 
   SetBlipSprite(blip, 457)
@@ -152,7 +153,7 @@ function CDepot:createInteractionPed()
       self.managerBlip = managerBlip
 
       if not self.tipAlreadyDisplayed then
-        TriggerEvent('deliveryController:displayHelpText', 'TJ_TIP_SPEAK_TO_MANAGER')
+        TriggerEvent('mrp:trucking:displayHelpText', 'TJ_TIP_SPEAK_TO_MANAGER')
         SetBlipFlashTimer(self.managerBlip, 5000)
         self.tipAlreadyDisplayed = true
       end
