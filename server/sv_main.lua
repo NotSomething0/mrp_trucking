@@ -27,7 +27,27 @@ lib.callback.register('mrp:trucking:clockIn', function(source)
     return true
 end)
 
-lib.callback.register('alrp:truckJob:clockOut', function(source)
+lib.callback.register('mrp:trucking:continueShift', function(source)
+    local driver = driverManager:getDriver(source)
+
+    if not driver then
+        return false, 'TJ_ALREADY_CLOCKED_OUT'
+    end
+
+    if driver:getDeliveryRoute() then
+        return false, 'TJ_SHIFT_ALREADY_STARTED'
+    end
+
+    local success, errorMessage = driverManager:assignDriverRoute(driver)
+
+    if not success then
+        return false, errorMessage
+    end
+
+    return true
+end)
+
+lib.callback.register('mrp:trucking:clockOut', function(source)
     local driver = driverManager:getDriver(source)
 
     if not driver then
@@ -44,7 +64,7 @@ lib.callback.register('alrp:truckJob:clockOut', function(source)
     return true
 end)
 
-lib.callback.register('alrp:truckJob:truckCollected', function(source)
+lib.callback.register('mrp:trucking:truckCollected', function(source)
     local driver = driverManager:getDriver(source)
 
     if not driver then
@@ -81,11 +101,11 @@ lib.callback.register('alrp:truckJob:truckCollected', function(source)
     return true
 end)
 
-lib.callback.register('alrp:truckJob:trailerCollected', function(source)
+lib.callback.register('mrp:trucking:trailerCollected', function(source)
     local driver = driverManager:getDriver(source)
 
     if not driver then
-        lib.logger(source, 'alrp:truckJob:trailerCollected', 'attempted to mark a trailer as collected but they aren\'t clocked in.')
+        lib.logger(source, 'mrp:trucking:trailerCollected', 'attempted to mark a trailer as collected but they aren\'t clocked in.')
         return false, 'TJ_NOT_CLOCKED_IN'
     end
 
@@ -102,7 +122,7 @@ lib.callback.register('alrp:truckJob:trailerCollected', function(source)
     local distanceBetweenTruckAndTrailer = #(driverTruckCoordinate - driverTrailerCoordinate)
 
     if distanceBetweenTruckAndTrailer >= MAXIMUM_DISTANCE_BETWEEN_TRUCK_AND_TRAILER then
-        lib.logger(source, 'alrp:truckJob:trailerCollected', ('Possible cheater detected - egregious distance between truck and trailer: %d meters'):format(distanceBetweenTruckAndTrailer))
+        lib.logger(source, 'mrp:trucking:trailerCollected', ('Possible cheater detected - egregious distance between truck and trailer: %d meters'):format(distanceBetweenTruckAndTrailer))
         return false, 'TJ_TRAILER_TOO_FAR'
     end
 
@@ -113,41 +133,27 @@ lib.callback.register('alrp:truckJob:trailerCollected', function(source)
     return true
 end)
 
--- Process waiting drivers periodically
-CreateThread(function()
-    while true do
-        Wait(UNASSIGNED_DRIVERS_POLL_RATE)
-
-        -- Use the new processWaitingDrivers method
-        driverManager:processWaitingDrivers()
-    end
-end)
-
-lib.callback.register('truckJob:trailerDelivered', function(source)
+lib.callback.register('mrp:trucking:trailerDelivered', function(source)
     local driver = driverManager:getDriver(source)
 
     if not driver then
-        lib.logger(source, 'truckJob:trailerDelivered',
-            string.format('%s just tried to mark their trailer as delivered but they\'re not a driver.',
-                GetPlayerName(source)))
+        lib.logger(source, 'mrp:trucking:trailerDelivered', string.format('%s just tried to mark their trailer as delivered but they\'re not a driver.', GetPlayerName(source)))
         return false, 'TJ_NOT_CLOCKED_IN'
     end
 
     local driverRoute = driver:getDeliveryRoute()
 
     if not driverRoute then
-        lib.logger(source, 'truckJob:trailerDelivered',
-            string.format('%s just tried to mark their trailer as delivered but they have no route assigned to them.',
-                GetPlayerName(source)))
+        lib.logger(source, 'mrp:trucking:trailerDelivered', ('%s just tried to mark their trailer as delivered but they have no route assigned to them.'):format(GetPlayerName(source)))
         return false, 'TJ_NO_ROUTE_ASSIGNED'
     end
 
     local trailerIndex = driver:getTrailerIndex()
     local trailerCoordinate = GetEntityCoords(trailerIndex)
-    local trailerDistanceFromDropPoint = #(driverRoute:getTrailerReturnLocation() - trailerCoordinate)
+    local trailerDistanceFromDropPoint = #(driverRoute:getTrailerReturnLocation().coordinates - trailerCoordinate)
 
     if trailerDistanceFromDropPoint >= 10 then
-        lib.logger(source, 'truckJob:trailerDelivered',
+        lib.logger(source, 'mrp:trucking:trailerDelivered',
             ('%s just tried to mark their trailer as delivered from an egregious distance (%d) meters'):format(
             GetPlayerName(source), trailerDistanceFromDropPoint))
         return false, 'TJ_TRAILER_TOO_FAR'
@@ -161,11 +167,11 @@ lib.callback.register('truckJob:trailerDelivered', function(source)
     return true
 end)
 
-lib.callback.register('truckJob:truckReturned', function(source)
+lib.callback.register('mrp:trucking:truckReturned', function(source)
     local driver = driverManager:getDriver(source)
 
     if not driver then
-        lib.logger(source, 'truckJob:truckReturned',
+        lib.logger(source, 'mrp:trucking:truckReturned',
             string.format('%s just tried to mark their truck as returned but they\'re not a driver.',
                 GetPlayerName(source)))
         return false, 'TJ_NOT_CLOCKED_IN'
@@ -176,20 +182,6 @@ lib.callback.register('truckJob:truckReturned', function(source)
     return true
 end)
 
-RegisterNetEvent('truckJob:driver:forceQuit', function(quitReason)
-    local driver = driverManager:getDriver(source)
-
-    if not driver then
-        return
-    end
-
-    -- Log the quit reason
-    lib.logger(source, 'truckJob:driver:forceQuit', ('Driver %s force quit with reason: %s'):format(GetPlayerName(source), quitReason or 'unknown'))
-
-    -- Clean up and remove the driver
-    driverManager:removeDriver(driver)
-end)
-
 AddEventHandler('playerDropped', function()
     local driver = driverManager:getDriver(source)
 
@@ -198,4 +190,14 @@ AddEventHandler('playerDropped', function()
     end
 
     driverManager:removeDriver(driver)
+end)
+
+-- Process waiting drivers periodically
+CreateThread(function()
+    while true do
+        Wait(UNASSIGNED_DRIVERS_POLL_RATE)
+
+        -- Use the new processWaitingDrivers method
+        driverManager:processWaitingDrivers()
+    end
 end)
