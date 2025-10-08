@@ -174,19 +174,19 @@ function GetConvarArray(convarName, default)
   return convarValueDecoded
 end
 
----Similar function to go try because I hate the way pcall works
 ---@param funcRef function
 ---@param ... any
 ---@return any result
 ---@return string? errorMessage
+---@diagnostic disable-next-line: lowercase-global
 function try(funcRef, ...)
-  local status, errorMessage = pcall(funcRef, ...)
+  local success, result = pcall(funcRef, ...)
 
-  if not status then
-    return nil, errorMessage
+  if not success then
+    return nil, result
   end
 
-  return errorMessage, nil
+  return result, nil
 end
 
 ---comment
