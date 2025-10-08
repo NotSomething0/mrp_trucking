@@ -1,36 +1,28 @@
 ---@class CRouteFactory
 CRouteFactory = lib.class('CRouteFactory')
 
----Creates a new instance of CRouteFactory
+---Create a new instance of CRouteFactory
 ---@param deliveryManager CDeliveryManager
 function CRouteFactory:constructor(deliveryManager)
 end
 
----Creates a new delivery route
----@param routeIndex number
----@param routeType RouteTypes
----@param routeName string
----@param trailerCoordinates table
----@param routeCoordinates table
+---Create a new delivery route instance route
+---@param rawRoute table
 ---@return CDeliveryRoute?
-function CRouteFactory.createRoute(routeIndex, routeType, routeName, trailerCoordinates, routeCoordinates)
-  local baseRoute = CBaseRoute:new(routeIndex, routeType, routeName, trailerCoordinates)
+function CRouteFactory.createRoute(routeIndex, rawRoute)
+  local routeType = rawRoute?.routeType and RouteTypes[rawRoute.routeType]
 
-  if not baseRoute then
-    error('Failed to create new instance of CBaseRoute')
+  if not routeType then
+    error(string.format('%s is not a valid route type', rawRoute?.routeType))
   end
 
   if routeType == RouteTypes.POINT_TO_POINT then
-    return CRoutePointToPoint:new(baseRoute)
-  end
-
-  if routeType == RouteTypes.MULTI_POINT then
-    return CRouteMultiPoint(baseRoute, routeCoordinates)
+    return CRoutePointToPoint:new(routeIndex, rawRoute)
   end
 
   if routeType == RouteTypes.MULTI_POINT_FUELING then
     --return CRouteMultiPointFueling:new(routeIndex, routeType, routeName, trailerCoordinates)
   end
 
-  warn(('Failed to create route %s at index %d. An unknown route type was specified %s '):format(routeName, routeIndex, routeType))
+  warn(('Failed to create route %s at index %d. An unknown route type was specified %s '):format(rawRoute?.routeName or 'Unknown', routeIndex, routeType))
 end
