@@ -2,8 +2,17 @@
 ---@field private private { m_baseRoute: CBaseRoute, m_routeBlip: number }
 CRoutePointToPoint = lib.class('CRoutePointToPoint')
 
----@param baseRoute CBaseRoute
-function CRoutePointToPoint:constructor(baseRoute)
+---@param routeIndex number
+---@param rawRoute table
+function CRoutePointToPoint:constructor(routeIndex, rawRoute)
+  local baseRoute, errorMessage = try(function()
+    return CBaseRoute:new(routeIndex, rawRoute)
+  end)
+
+  if errorMessage then
+    error(errorMessage)
+  end
+
   self.private.m_baseRoute = baseRoute
 end
 
@@ -22,8 +31,8 @@ function CRoutePointToPoint:getName()
   return self.private.m_baseRoute:getName()
 end
 
----Set the current state for this route
 ---@param routeState RouteStates
+---@see CBaseRoute.setState
 function CRoutePointToPoint:setState(routeState)
   self.private.m_baseRoute:setState(routeState)
 end
@@ -35,21 +44,26 @@ function CRoutePointToPoint:getState()
   return self.private.m_baseRoute:getState()
 end
 
+---Get the driver assigned to the route
 ---@see CBaseRoute.getDriver
 function CRoutePointToPoint:getDriver()
   return self.private.m_baseRoute:getDriver()
 end
 
 ---Set the driver assigned to this route
----@param driver CDriver 
+---@param driver CDriver?
 function CRoutePointToPoint:setDriver(driver)
   self.private.m_baseRoute:setDriver(driver)
 end
 
+---@see CBaseRoute.getTruckIndex
+---@return number truckIndex
 function CRoutePointToPoint:getTruckIndex()
   return self.private.m_baseRoute:getTruckIndex()
 end
 
+---@see CBaseRoute.setTruckIndex
+---@param truckIndex number
 function CRoutePointToPoint:setTruckIndex(truckIndex)
   self.private.m_baseRoute:setTruckIndex(truckIndex)
 end
@@ -66,14 +80,20 @@ function CRoutePointToPoint:getNetworkTrailerIndex()
   return self.private.m_baseRoute:getNetworkTrailerIndex()
 end
 
+---Set the network index for the routes trailer
+---@param networkTrailerIndex number
 function CRoutePointToPoint:setNetworkTrailerIndex(networkTrailerIndex)
   self.private.m_baseRoute:setNetworkTrailerIndex(networkTrailerIndex)
 end
 
-function CRoutePointToPoint:getTrailerPickUpCoordinate()
-  return self.private.m_baseRoute:getTrailerPickUpCoordinate()
+---Get the trailer pick up coordinates and heading
+---@return { coordinates: table, heading: number }
+function CRoutePointToPoint:getTrailerPickUpLocation()
+  return self.private.m_baseRoute:getTrailerPickUpLocation()
 end
 
+---Get the trailers return coordinates and heading
+---@return { coordinates: table, heading: number }
 function CRoutePointToPoint:getTrailerReturnLocation()
   return self.private.m_baseRoute:getTrailerReturnLocation()
 end
@@ -88,10 +108,11 @@ function CRoutePointToPoint:taskCollectTruck()
 
     DisplayHelpTextThisFrame('TJ_COLLECT_TRUCK', false)
 
-    local playerVehicle = GetVehiclePedIsIn(cache.ped, false)
+    if IsPedInVehicle(cache.ped, truckIndex, false) then
+      -- Server side GetVehiclePedIsIn sometimes returns 0 give a chance for the SyncTree to update
+      Wait(500)
 
-    if playerVehicle == truckIndex then
-      local truckCollected, truckCollectError = lib.callback.await('alrp:truckJob:truckCollected')
+      local truckCollected, truckCollectError = lib.callback.await('mrp:trucking:truckCollected')
 
       if truckCollected then
         break
@@ -99,8 +120,7 @@ function CRoutePointToPoint:taskCollectTruck()
 
       if not truckCollected then
         ClearHelp(true)
-        TriggerEvent('truckJob:deliveryController:displayHelpText', truckCollectError)
-        Wait(4000)
+        TriggerEvent('mrp:trucking:displayHelpText', truckCollectError)
       end
     end
   end
@@ -109,7 +129,7 @@ end
 function CRoutePointToPoint:taskCollectTrailer()
   self.private.m_baseRoute:createTrailerBlip()
 
-  TriggerEvent('truckJob:deliveryController:displayHelpText', 'TJ_COLLECT_TRAILER')
+  TriggerEvent('mrp:trucking:displayHelpText', 'TJ_COLLECT_TRAILER')
 
   while not DoesEntityExist(self:getTrailerIndex()) do
     Wait(1000)
@@ -124,34 +144,36 @@ function CRoutePointToPoint:taskCollectTrailer()
     local hasTrailer, truckTrailer = GetVehicleTrailerVehicle(driverTruck)
 
     if hasTrailer then
+      local trailerCollected, trailerCollectionError = lib.callback.await('mrp:trucking:trailerCollected', false)
+
+      if not trailerCollected then
+        DetachVehicleFromTrailer(driverTruck)
+        TriggerEvent('mrp:trucking:displayHelpText', trailerCollectionError)
+      end
+
       if truckTrailer == driverTrailer then
         break
       end
-
-      DetachVehicleFromTrailer(driverTruck)
-      TriggerEvent('truckJob:deliveryController:displayHelpText', 'TJ_INCORRECT_TRAILER')
     end
   end
-
-  TriggerServerEvent('alrp:truckJob:trailerCollected')
 end
 
 function CRoutePointToPoint:taskDeliverTrailer()
   self:createRouteBlip()
 
-  TriggerEvent('truckJob:deliveryController:displayHelpText', 'TJ_DELIVER_TRAILER')
+  TriggerEvent('mrp:trucking:displayHelpText', 'TJ_DELIVER_TRAILER')
 
   local truckIndex = self:getTruckIndex()
   local trailerIndex = self:getTrailerIndex()
   local trailerReturnLocation = self:getTrailerReturnLocation()
 
   local trailerWidth = GetEntityWidth(trailerIndex)
-  local trailerDropAreaOrigin = trailerReturnLocation + trailerWidth
-  local trailerDropAreaExtent = trailerReturnLocation - trailerWidth
+  local trailerDropAreaOrigin = trailerReturnLocation.coordinates + trailerWidth
+  local trailerDropAreaExtent = trailerReturnLocation.coordinates - trailerWidth
 
   local trailerDropMarker = lib.marker.new({
     type = 30,
-    coords = trailerReturnLocation,
+    coords = trailerReturnLocation.coordinates,
     width = 5,
     height = 5,
     faceCamera = false,
@@ -161,8 +183,7 @@ function CRoutePointToPoint:taskDeliverTrailer()
   while true do
     Wait(0)
 
-    local playerCoordinate = cache.coords
-    local playerWithinDrawDistance = #(playerCoordinate - trailerReturnLocation) <= 50
+    local playerWithinDrawDistance = #(cache.coords - trailerReturnLocation.coordinates) <= 50
 
     if not IsVehicleAttachedToTrailer(truckIndex) and not playerWithinDrawDistance then
       DisplayHelpTextThisFrame('TJ_TRAILER_DISCONNECTED_FAR', false)
@@ -194,12 +215,12 @@ function CRoutePointToPoint:taskDeliverTrailer()
         DisplayHelpTextThisFrame('TJ_HINT_DROP_TRAILER', false)
 
         if not IsVehicleAttachedToTrailer(truckIndex) then
-          local trailerDelivered, trailerDeliveryError = lib.callback.await('truckJob:trailerDelivered')
+          local trailerDelivered, trailerDeliveryError = lib.callback.await('mrp:trucking:trailerDelivered', false)
 
           if not trailerDelivered then
             ClearHelp(true)
             FreezeEntityPosition(truckIndex, true)
-            TriggerEvent('truckJob:deliveryController:displayHelpText', trailerDeliveryError)
+            TriggerEvent('mrp:trucking:displayHelpText', trailerDeliveryError)
 
             Wait(4000) -- Arbitrary wait so the player has time to read the message
 
@@ -214,11 +235,9 @@ function CRoutePointToPoint:taskDeliverTrailer()
             ---@diagnostic disable-next-line: redundant-parameter
             SetTrailerLegsLowered(trailerIndex)
             DetachVehicleFromTrailer(truckIndex)
-            ---@diagnostic disable-next-line: undefined-field
             SetEntityHeading(trailerIndex, trailerReturnLocation.heading)
-            ---@diagnostic disable-next-line: undefined-field
-            SetEntityCoords(trailerIndex, trailerReturnLocation.x, trailerReturnLocation.y,
-              trailerReturnLocation.z, false, false, false, false)
+            SetEntityCoords(trailerIndex, trailerReturnLocation.coordinates.x, trailerReturnLocation.coordinates.y,
+              trailerReturnLocation.coordinates.z, false, false, false, false)
 
             local trailerBlip = GetBlipFromEntity(trailerIndex)
 
@@ -238,7 +257,7 @@ function CRoutePointToPoint:taskReturnToDepot()
   local depotBlipCoords = GetBlipCoords(depotBlip)
 
   SetBlipRoute(depotBlip, true)
-  TriggerEvent('truckJob:deliveryController:displayHelpText', 'TJ_RETURN_TO_DEPOT')
+  TriggerEvent('mrp:trucking:displayHelpText', 'TJ_RETURN_TO_DEPOT')
 
   while #(cache.coords - depotBlipCoords) >= 200 do
     Wait(1000)
@@ -257,44 +276,46 @@ function CRoutePointToPoint:taskReturnTruck()
     width = 5,
     height = 5,
     faceCamera = false,
-    bobUpAndDown = true
+    bobUpAndDown = true,
+    color = { r = 255, g = 0, b = 0, a = 200}
   })
 
-  print('truckReturnMarker', truckReturnMarker)
-  print('truckReturnMarker:draw', truckReturnMarker.draw)
-
   SetBlipRoute(truckReturnBlip, true)
-  TriggerEvent('truckJob:deliveryController:displayHelpText', 'TJ_RETURN_TRUCK')
+  TriggerEvent('mrp:trucking:displayHelpText', 'TJ_RETURN_TRUCK')
 
   local truckIndex = self:getTruckIndex()
   local truckWidth = GetEntityWidth(truckIndex)
   local truckReturnAreaOrigin = truckReturnPoint + truckWidth
   local truckReturnAreaExtent = truckReturnPoint - truckWidth
 
-  local truckInArea = false
-
   while true do
     Wait(0)
-
-    -- For whatever reason this doesn't work but the trailer return marker does
-    -- Leaving this here in case it magically starts working
-    truckReturnMarker:draw()
-
-    truckInArea = IsEntityInAngledArea(truckIndex,
+    local truckInArea = IsEntityInAngledArea(truckIndex,
       truckReturnAreaOrigin.x, truckReturnAreaOrigin.y, truckReturnAreaOrigin.z,
       truckReturnAreaExtent.x, truckReturnAreaExtent.y, truckReturnAreaExtent.z,
       truckWidth, false, false, 0)
-
     if not truckInArea then
-      truckReturnMarker.color = { 255, 0, 0 }
+      truckReturnMarker.color = { r = 255, g = 0, b = 0, a = 200 }
     end
 
     if truckInArea then
-      truckReturnMarker.color = { 0, 255, 0 }
-      break
+      truckReturnMarker.color = { r = 0, g = 255, b = 0, a = 200 }
+
+      DisplayBusySpinner('TJ_HLP_VALIDATING_WITH_SERVER')
+
+      local truckReturned, truckReturnError = lib.callback.await('mrp:trucking:truckReturned')
+
+      if not truckReturned then
+        TriggerEvent('mrp:trucking:displayHelpText', truckReturnError)
+      else
+        break
+      end
     end
+
+    truckReturnMarker:draw()
   end
 
+  BusyspinnerOff()
   RemoveBlip(truckReturnBlip)
   TaskLeaveAnyVehicle(cache.ped, 0, 0)
 
@@ -302,18 +323,13 @@ function CRoutePointToPoint:taskReturnTruck()
 
   SetBlipFlashTimer(managerBlip, 5000)
 
-  local res = lib.callback.await('truckJob:truckReturned')
-
-  print('Got ' .. res .. ' from truckJob:truckReturned')
-
-
-  TriggerEvent('truckJob:deliveryController:displayHelpText', 'TJ_RETURN_TO_MANAGER')
+  TriggerEvent('mrp:trucking:displayHelpText', 'TJ_RETURN_TO_MANAGER')
 end
 
 function CRoutePointToPoint:createRouteBlip()
-  local trailerReturnLocation = self.private.m_baseRoute:getTrailerReturnLocation()
+  local trailerReturnLocation = self:getTrailerReturnLocation()
 
-  local routeBlip = AddBlipForCoord(trailerReturnLocation.x, trailerReturnLocation.y, trailerReturnLocation.z)
+  local routeBlip = AddBlipForCoord(trailerReturnLocation.coordinates.x, trailerReturnLocation.coordinates.y, trailerReturnLocation.coordinates.z)
 
   SetBlipRoute(routeBlip, true)
   SetBlipName(routeBlip, 'Post OP Trailer Drop Point')
