@@ -5,16 +5,16 @@ local deliveryController <const> = CDeliveryController:new(config)
 
 Depot = CDepot:new(config)
 
-RegisterNetEvent('truckJob:deliveryController:routeAssigned', function(routeIndex)
+RegisterNetEvent('mrp:trucking:routeAssigned', function(routeIndex)
     if routeIndex == RouteTypes.INVALID then
-        deliveryController:setRoute(routeIndex)
+        deliveryController:setRoute(nil)
         return
     end
 
     local route = deliveryManager:getRouteAtIndex(routeIndex)
 
     if not route then
-        warn(('Failed to set route index for delivery controller %s is not a valid route index'):format(routeIndex))
+        warn(('Failed to set route for delivery controller %s is not a valid route index'):format(routeIndex))
         return
     end
 
@@ -22,11 +22,12 @@ RegisterNetEvent('truckJob:deliveryController:routeAssigned', function(routeInde
     deliveryController:setRoute(route)
 end)
 
-RegisterNetEvent('truckJob:deliveryController:truckAssigned', function(networkTruckIndex)
+RegisterNetEvent('mrp:trucking:truckAssigned', function(networkTruckIndex)
     local route = deliveryController:getRoute()
 
     if not route then
-        error('No route assigned can not set truck index')
+        warn(('Failed to set route truck index no route assigned.'))
+        return
     end
 
     local timeout = GetGameTimer() + FIVE_SECONDS
@@ -46,10 +47,11 @@ RegisterNetEvent('truckJob:deliveryController:truckAssigned', function(networkTr
     route:setState(RouteStates.waitingForTrailer)
 end)
 
-RegisterNetEvent('truckJob:deliveryController:trailerAssigned', function(networkTrailerIndex)
+RegisterNetEvent('mrp:trucking:trailerAssigned', function(networkTrailerIndex)
     local route = deliveryController:getRoute()
 
     if not route then
+        warn('Failed to set route network trailer index no route assigned.')
         return
     end
 
