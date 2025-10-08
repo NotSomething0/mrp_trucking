@@ -1,10 +1,10 @@
 ---@class CDriver
----@field private private { m_playerIndex: number, m_state: DriverStates, m_truckIndex: number, m_trailerIndex: number, m_route: CDeliveryRoute, m_completedDeliveries: number }
+---@field private private { m_playerIndex: number, m_status: DriverStatus, m_truckIndex: number, m_trailerIndex: number, m_route: CDeliveryRoute? , m_completedDeliveries: number }
 CDriver = lib.class('CDriver')
 
 function CDriver:constructor(playerIndex)
   self.private.m_playerIndex = playerIndex
-  self.private.m_state = DriverStates.WAITING_FOR_DELIVERY
+  self.private.m_status = DriverStatus.WAITING_FOR_DELIVERY
   self.private.m_truckIndex = 0
   self.private.m_trailerIndex = 0
   self.private.m_route = nil
@@ -18,99 +18,83 @@ function CDriver:getPlayerIndex()
 end
 
 ---Get the drivers status
----@return DriverStates driverStatus
-function CDriver:getState()
-  return self.private.m_state
+---@return DriverStatus driverStatus
+function CDriver:getStatus()
+  return self.private.m_status
 end
 
----Set the drivers status
----@param state DriverStates
-function CDriver:setState(state)
-  self.private.m_state = state
-end
-
----Get the drivers current delivery index
+---Get the drivers current delivery route
 ---@return CDeliveryRoute route
 function CDriver:getDeliveryRoute()
   return self.private.m_route
 end
 
----comment
----@param route CDeliveryRoute
+---Set the drivers status
+---@param status DriverStatus
+function CDriver:setStatus(status)
+  self.private.m_status = status
+end
+
+---Set the driver current delivery route
+---@param route CDeliveryRoute?
 function CDriver:setDeliveryRoute(route)
   self.private.m_route = route
 end
 
+---Set the drivers delivery route
+---@param route CDeliveryRoute
 function CDriver:routeAssigned(route)
   self:setDeliveryRoute(route)
-  self:setState(DriverStates.WAITING_FOR_ROUTE_INIT)
+  self:setStatus(DriverStatus.WAITING_FOR_ROUTE_INIT)
 
-  TriggerClientEvent('truckJob:deliveryController:routeAssigned', self:getPlayerIndex(), route:getIndex())
+  TriggerClientEvent('mrp:trucking:routeAssigned', self:getPlayerIndex(), route:getIndex())
 end
 
+---Complete the currently assigned delivery route
 function CDriver:completeRoute()
   self:setDeliveryRoute(nil)
-  self:setState(DriverStates.SPEAKING_WITH_MANAGER)
+  self:setStatus(DriverStatus.SPEAKING_WITH_MANAGER)
 
   self.private.m_completedDeliveries += 1
 
-  TriggerClientEvent('truckJob:deliveryController:routeAssigned', self:getPlayerIndex(), nil)
+  TriggerClientEvent('mrp:trucking:routeAssigned', self:getPlayerIndex(), RouteTypes.INVALID)
 end
 
----Gets the drivers delviery vehicle index
+---Gets the driver vehicle index
 ---@return number
 function CDriver:getTruckIndex()
   return self.private.m_truckIndex
 end
 
----Sets the drivers delviery vehicle index
-function CDriver:setTruckIndex(vehicleIndex)
-  if not DoesEntityExist(vehicleIndex) then
-    warn('Unable to set delivery vehicle for driver %s as the vehicle does not exist.')
+---Set the driver vehicle index
+---@param truckIndex number
+function CDriver:setTruckIndex(truckIndex)
+  if not DoesEntityExist(truckIndex) then
+    warn(('Unable to set truck index for driver %s as the truck does not exist.'):format(self:getPlayerIndex()))
     return
   end
 
-  self.private.m_truckIndex = vehicleIndex
+  self.private.m_truckIndex = truckIndex
 end
 
----Gets the drivers delviery trailer index
+---Get the driver trailer index
 ---@return number
 function CDriver:getTrailerIndex()
   return self.private.m_trailerIndex
 end
 
----Sets the drivers delviery trailer index
+---Set the driver trailer index
 function CDriver:setTrailerIndex(trailerIndex)
   if not DoesEntityExist(trailerIndex) then
-    warn('Unable to set delivery vehicle for driver %s as the vehicle does not exist.')
+    warn(('Unable to set trailer index for driver %s as the trailer does not exist.'):format(self:getPlayerIndex()))
     return
   end
 
   self.private.m_trailerIndex = trailerIndex
 end
 
----comment
-function CDriver:deleteTruck()
-  local truckIndex = self:getTruckIndex()
-
-  if DoesEntityExist(truckIndex) then
-    DeleteEntity(truckIndex)
-  end
-
-  self:setTruckIndex(0)
-end
-
----comment
-function CDriver:deleteTrailer()
-  local trailerIndex = self:getTrailerIndex()
-
-  if DoesEntityExist(trailerIndex) then
-    DeleteEntity(trailerIndex)
-  end
-
-  self:setTrailerIndex(0)
-end
-
+---Get the drivers total completed deliveries
+---@return number completedDeliveries
 function CDriver:getCompletedDeliveries()
   return self.private.m_completedDeliveries
 end
