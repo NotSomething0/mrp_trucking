@@ -156,17 +156,12 @@ function CTruckingConfig:getDepotBlipCoordinates()
   return self.private.m_depotBlipCoordinates
 end
 
----Get a random truck model hash from the loaded truck models.
----@return number # The hash of a randomly selected truck model.
+---Get a random truck model from the loaded truck models.
+---@return string truckModel The randomly selected truck model.
 function CTruckingConfig:getRandomTruckModel()
   assert(IS_SERVER, 'CTruckingConfig:getRandomTruckModel is only available on the server')
 
   local truckModels = self.private.truckModels
-
-  if type(truckModels) ~= 'table' or table.type(truckModels) ~= 'array' or #truckModels < 1 then
-    error('no truck models')
-  end
-
   local truckModelIndex = math.random(#truckModels)
 
   return truckModels[truckModelIndex]
@@ -186,16 +181,11 @@ function CTruckingConfig:setTruckModels()
 end
 
 ---Get a random trailer model hash
----@return number trailerModels
+---@return string trailerModels
 function CTruckingConfig:getRandomTrailerModel()
   assert(IS_SERVER, 'CTruckingConfig:getRandomTrailerModel is only available on the server')
 
   local trailerModels = self.private.trailerModels
-
-  if type(trailerModels) ~= 'table' or table.type(trailerModels) ~= 'array' or #trailerModels < 1 then
-    error('no trailer models')
-  end
-
   local trailerModelIndex = math.random(#trailerModels)
 
   return trailerModels[trailerModelIndex]
@@ -230,7 +220,7 @@ function CTruckingConfig:setTruckSpawnCoordinates()
     local _heading = spawn.heading
 
     table.insert(self.private.truckSpawns, {
-      coordinate = _coordinate,
+      coordinates = _coordinate,
       heading = _heading
     })
   end
