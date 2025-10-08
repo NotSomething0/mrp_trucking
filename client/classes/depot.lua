@@ -76,7 +76,7 @@ end
 function CDepot:getTruckReturnCoordinate()
   local config = self:getConfig()
   local truckSpawns = config:getTruckSpawns()
-  local truckReturnCoordinate = vector3(0, 0, 0)
+  local truckReturnCoordinates = vector3(0, 0, 0)
 
   for index = 1, #truckSpawns do
     local spawn = truckSpawns[index]
@@ -87,19 +87,19 @@ function CDepot:getTruckReturnCoordinate()
       local vehicleIndex = vehiclePool[poolIndex]
       local vehicleCoords = GetEntityCoords(vehicleIndex)
 
-      if #(spawn.coordinate - vehicleCoords) <= 4 then
+      if #(spawn.coordinates - vehicleCoords) <= 4 then
         spawnFree = false
         break
       end
     end
 
     if spawnFree then
-      truckReturnCoordinate = spawn.coordinate
+      truckReturnCoordinates = spawn.coordinates
       break
     end
   end
 
-  return truckReturnCoordinate
+  return truckReturnCoordinates
 end
 
 function CDepot:createInteractionPed()
