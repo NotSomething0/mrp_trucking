@@ -115,7 +115,7 @@ function CDeliveryController:setClockedIn(clockedIn)
   lib.registerContext(TJ_DEPOT_MENU_OPTIONS)
 end
 
----Uses the built in game notification system to display help text
+---Use the games built in notification system to display help text
 ---@param inputType string
 ---@param components table?
 function CDeliveryController:displayHelpText(inputType, components)

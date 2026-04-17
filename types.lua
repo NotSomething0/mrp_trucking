@@ -1,5 +1,6 @@
 ---@diagnostic disable: missing-return
 
+---@alias source string|number
 ---@alias TruckLocation { coordinates: vector3, heading: number }
 ---@alias TrailerLocation { coordinates: vector3, heading: number }
 ---@alias CDeliveryRoute CRoutePointToPoint|CRouteMultiPointFueling

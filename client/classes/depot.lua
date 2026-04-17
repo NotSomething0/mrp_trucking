@@ -71,7 +71,6 @@ function CDepot:updateBlip()
   })
 end
 
-
 ---@return vector3 truckSpawn
 function CDepot:getTruckReturnCoordinate()
   local config = self:getConfig()
@@ -92,7 +91,6 @@ function CDepot:getTruckReturnCoordinate()
         break
       end
     end
-
     if spawnFree then
       truckReturnCoordinates = spawn.coordinates
       break

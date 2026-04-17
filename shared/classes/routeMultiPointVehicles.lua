@@ -3,11 +3,9 @@
 CRouteMultiPointVehicles = lib.class('CRouteMultiPointVehicles')
 
 ---@param routeIndex number
----@param routeType RouteTypes
----@param routeName string
----@param routeCoordinates table
-function CRouteMultiPointVehicles:constructor(routeIndex, routeType, routeName, routeCoordinates)
-  self.private.m_baseRoute = CBaseRoute:new(routeIndex, routeType, routeName, routeCoordinates)
+---@param rawRoute table
+function CRouteMultiPointVehicles:constructor(routeIndex, rawRoute)
+  self.private.m_baseRoute = CBaseRoute:new(routeIndex, rawRoute)
 end
 
 function CRouteMultiPointVehicles:performRouteTasks()

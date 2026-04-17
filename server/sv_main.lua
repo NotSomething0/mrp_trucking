@@ -72,7 +72,6 @@ lib.callback.register('mrp:trucking:truckCollected', function(source)
     end
 
     local driverIndex = driver:getPlayerIndex()
-    local driverPed = GetPlayerPed(driverIndex)
     local driverRoute = driver:getDeliveryRoute()
 
     if not driverRoute then
@@ -88,6 +87,8 @@ lib.callback.register('mrp:trucking:truckCollected', function(source)
         driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
         return false, 'TJ_TRUCK_DOES_NOT_EXIST'
     end
+
+    local driverPed = GetPlayerPed(driverIndex)
 
     if GetVehiclePedIsIn(driverPed, false) ~= driverTruck then
         TaskLeaveAnyVehicle(driverPed, 0, 1)
@@ -180,6 +181,17 @@ lib.callback.register('mrp:trucking:truckReturned', function(source)
     driverManager:completeDriverDelivery(driver)
 
     return true
+end)
+
+RegisterNetEvent('mrp:trucking:routeAbandonded', function()
+    local source = source --[[@as number]]
+    local driver = driverManager:getDriver(source)
+
+    if not driver then
+        return
+    end
+
+    driverManager:removeDriver(driver)
 end)
 
 AddEventHandler('playerDropped', function()
