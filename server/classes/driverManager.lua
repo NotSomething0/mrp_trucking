@@ -218,6 +218,16 @@ function CDriverManager:assignDriverTrailer(driver)
 
   driver:setTrailerIndex(trailer.entity)
 
+  local driverRoute = driver:getDeliveryRoute()
+
+  if not driverRoute then
+    DeleteEntity(trailer.entity)
+    driver:setStatus(DriverStatus.WAITING_FOR_DELIVERY)
+    return false, 'TJ_NO_ROUTE_ASSIGNED'
+  end
+
+  driverRoute:setTrailerIndex(trailer.entity)
+
   TriggerClientEvent('mrp:trucking:trailerAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(trailer.entity))
 
   return true
