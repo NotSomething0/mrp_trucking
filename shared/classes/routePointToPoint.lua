@@ -68,6 +68,12 @@ function CRoutePointToPoint:setTruckIndex(truckIndex)
   self.private.m_baseRoute:setTruckIndex(truckIndex)
 end
 
+---@see CBaseRoute.setTrailerIndex
+---@param trailerIndex number
+function CRoutePointToPoint:setTrailerIndex(trailerIndex)
+  self.private.m_baseRoute:setTrailerIndex(trailerIndex)
+end
+
 ---Returns the trailer index for this route
 ---@return number trailerIndex
 function CRoutePointToPoint:getTrailerIndex()
@@ -151,7 +157,7 @@ function CRoutePointToPoint:taskCollectTrailer()
         TriggerEvent('mrp:trucking:displayHelpText', trailerCollectionError)
       end
 
-      if truckTrailer == driverTrailer then
+      if trailerCollected and truckTrailer == driverTrailer then
         break
       end
     end
