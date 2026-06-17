@@ -177,6 +177,17 @@ end
 ---@param driver CDriver
 ---@return boolean success, string? errorMessage
 function CDriverManager:assignDriverTruck(driver)
+  local previousDriverTruck = driver:getTruckIndex()
+
+  if DoesEntityExist(previousDriverTruck) then
+    local driverRoute = driver:getDeliveryRoute()
+
+    driverRoute:setTruckIndex(previousDriverTruck)
+    TriggerClientEvent('mrp:trucking:truckAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(previousDriverTruck))
+
+    return true
+  end
+
   local truck, errorMessage = self:createDriverTruck(driver)
 
   if not truck then
