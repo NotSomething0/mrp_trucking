@@ -62,6 +62,10 @@ end
 ---@param routeState RouteStates
 function CBaseRoute:setState(routeState)
   self.private.m_state = routeState
+
+  if routeState == RouteStates.completed then
+    self:handleRouteCompletetion()
+  end
 end
 
 ---Get the routes truck index
@@ -196,6 +200,16 @@ function CBaseRoute:reset()
   self.private.m_trailerIndex = INVALID_ENTTITY
   self.private.m_state = RouteStates.unassigned
   self.private.m_driver = nil
+end
+
+function CBaseRoute:handleRouteCompletetion()
+  local trailerIndex = self:getTrailerIndex()
+
+  if DoesEntityExist(trailerIndex) then
+    DeleteEntity(trailerIndex)
+  end
+
+  self:reset()
 end
 
 ---Creates a blip for the routes delivery truck
