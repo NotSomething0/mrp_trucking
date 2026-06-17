@@ -18,7 +18,13 @@ local TJ_DEPOT_MENU_OPTIONS = {
       description = 'Resume your current shift!',
       icon = 'fa-solid fa-truck',
       disabled = true,
-      event = 'deliveryController:continueShift'
+      onSelect = function()
+        local success, errorMessage = lib.callback.await('mrp:trucking:continueShift')
+
+        if not success then
+          DisplayHelpText(errorMessage)
+        end
+      end
     },
     {
       title = 'End Shift',
@@ -31,7 +37,7 @@ local TJ_DEPOT_MENU_OPTIONS = {
 }
 
 ---@class CDeliveryController
----@field private private { m_config: CTruckingConfig, m_clockedIn: boolean, m_route: CDeliveryRoute?, m_trailerCollectCoordinate: vector3, m_trailerDropCoordinate: vector3 }
+---@field private private { m_config: CTruckingConfig, m_clockedIn: boolean, m_route: CDeliveryRoute? }
 CDeliveryController = lib.class('CDeliveryController')
 
 ---Create a new instance of CDeliveryController
@@ -91,7 +97,7 @@ function CDeliveryController:setClockedIn(clockedIn)
     end
 
     TJ_DEPOT_MENU_OPTIONS.options[CLOCK_IN_OPTION].disabled = true
-    TJ_DEPOT_MENU_OPTIONS.options[CONTINUE_SHIFT_OPTION].disabled = true
+    TJ_DEPOT_MENU_OPTIONS.options[CONTINUE_SHIFT_OPTION].disabled = false
     TJ_DEPOT_MENU_OPTIONS.options[CLOCK_OUT_OPTION].disabled = false
 
     DisplayBusySpinner('TJ_WAITING_FOR_ROUTE_ASSIGNMENT')

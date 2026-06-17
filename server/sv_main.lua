@@ -34,8 +34,10 @@ lib.callback.register('mrp:trucking:continueShift', function(source)
         return false, 'TJ_ALREADY_CLOCKED_OUT'
     end
 
-    if driver:getDeliveryRoute() then
-        return false, 'TJ_SHIFT_ALREADY_STARTED'
+    local driverCurrentRoute = driver:getDeliveryRoute()
+
+    if driverCurrentRoute or driver:getStatus() ~= DriverStatus.SPEAKING_WITH_MANAGER then
+        return false, 'TJ_ROUTE_NOT_COMPLETE'
     end
 
     local success, errorMessage = driverManager:assignDriverRoute(driver)
@@ -95,7 +97,6 @@ lib.callback.register('mrp:trucking:truckCollected', function(source)
         return false, 'TJ_INCORRECT_TRUCK'
     end
 
-    -- Update driver and route state
     driver:setStatus(DriverStatus.COLLECTING_TRAILER)
     driverRoute:setState(RouteStates.waitingForTrailer)
 
@@ -123,11 +124,10 @@ lib.callback.register('mrp:trucking:trailerCollected', function(source)
     local distanceBetweenTruckAndTrailer = #(driverTruckCoordinate - driverTrailerCoordinate)
 
     if distanceBetweenTruckAndTrailer >= MAXIMUM_DISTANCE_BETWEEN_TRUCK_AND_TRAILER then
-        lib.logger(source, 'mrp:trucking:trailerCollected', ('Possible cheater detected - egregious distance between truck and trailer: %d meters'):format(distanceBetweenTruckAndTrailer))
+        lib.logger(source, 'mrp:trucking:trailerCollected', string.format('tried to mark their trailer as collected but they\'re %d meters away.', distanceBetweenTruckAndTrailer))
         return false, 'TJ_TRAILER_TOO_FAR'
     end
 
-    -- Update driver and route state
     driver:setStatus(DriverStatus.DELIVERING_TRAILER)
     driverRoute:setState(RouteStates.inProgress)
 
@@ -145,23 +145,26 @@ lib.callback.register('mrp:trucking:trailerDelivered', function(source)
     local driverRoute = driver:getDeliveryRoute()
 
     if not driverRoute then
-        lib.logger(source, 'mrp:trucking:trailerDelivered', ('%s just tried to mark their trailer as delivered but they have no route assigned to them.'):format(GetPlayerName(source)))
+        lib.logger(source, 'mrp:trucking:trailerDelivered', string.format('%s just tried to mark their trailer as delivered but they have no route assigned to them.', GetPlayerName(source)))
         return false, 'TJ_NO_ROUTE_ASSIGNED'
     end
 
     local trailerIndex = driver:getTrailerIndex()
     local trailerCoordinate = GetEntityCoords(trailerIndex)
-    local trailerDistanceFromDropPoint = #(driverRoute:getTrailerReturnLocation().coordinates - trailerCoordinate)
+    local trailerReturnCoordinates = driverRoute:getTrailerReturnLocation().coordinates
+    local trailerDistanceFromDropPoint = #(trailerReturnCoordinates - trailerCoordinate)
 
     if trailerDistanceFromDropPoint >= 10 then
         lib.logger(source, 'mrp:trucking:trailerDelivered',
-            ('%s just tried to mark their trailer as delivered from an egregious distance (%d) meters'):format(
-            GetPlayerName(source), trailerDistanceFromDropPoint))
+            string.format(
+                '%s just tried to mark their trailer as delivered from an egregious distance (%d) meters',
+                GetPlayerName(source),
+                trailerDistanceFromDropPoint
+            ))
         return false, 'TJ_TRAILER_TOO_FAR'
     end
 
     driver:setStatus(DriverStatus.RETURNING_TO_DEPOT)
-    driverRoute:setState(RouteStates.completed)
 
     SetEntityOrphanMode(trailerIndex, 0)
 
@@ -178,6 +181,7 @@ lib.callback.register('mrp:trucking:truckReturned', function(source)
         return false, 'TJ_NOT_CLOCKED_IN'
     end
 
+    driver:setStatus(DriverStatus.SPEAKING_WITH_MANAGER)
     driverManager:completeDriverDelivery(driver)
 
     return true
