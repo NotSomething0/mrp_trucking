@@ -1,7 +1,6 @@
 local CLOCK_IN_OPTION <const> = 1
 local CONTINUE_SHIFT_OPTION <const> = 2
 local CLOCK_OUT_OPTION <const> = 3
-local BUSY_SPINNER_RIGHT <const> = 4
 
 local TJ_DEPOT_MENU_OPTIONS = {
   id = 'TJ_DEPOT_MENU',
@@ -54,7 +53,7 @@ function CDeliveryController:constructor(config)
   end)
 
   RegisterNetEvent('mrp:trucking:displayHelpText', function(inputType, components)
-    self:displayHelpText(inputType, components)
+    DisplayHelpText(inputType, components)
   end)
 end
 
@@ -68,7 +67,7 @@ end
 ---@param route CDeliveryRoute?
 function CDeliveryController:setRoute(route)
   if route then
-    self:displayBusySpinner('TJ_WAITING_FOR_ROUTE_INIT')
+    DisplayBusySpinner('TJ_WAITING_FOR_ROUTE_INIT')
   end
 
   self.private.m_route = route
@@ -87,7 +86,7 @@ function CDeliveryController:setClockedIn(clockedIn)
     local canClockIn, clockInError = lib.callback.await('mrp:trucking:clockIn', false)
 
     if not canClockIn then
-      self:displayHelpText(clockInError)
+      DisplayHelpText(clockInError)
       return
     end
 
@@ -95,13 +94,13 @@ function CDeliveryController:setClockedIn(clockedIn)
     TJ_DEPOT_MENU_OPTIONS.options[CONTINUE_SHIFT_OPTION].disabled = true
     TJ_DEPOT_MENU_OPTIONS.options[CLOCK_OUT_OPTION].disabled = false
 
-    self:displayBusySpinner('TJ_WAITING_FOR_ROUTE_ASSIGNMENT')
+    DisplayBusySpinner('TJ_WAITING_FOR_ROUTE_ASSIGNMENT')
     self.private.m_clockedIn = true
   else
     local canClockOut, clockOutError = lib.callback.await('mrp:trucking:clockOut', false)
 
     if not canClockOut then
-      self:displayHelpText(clockOutError)
+      DisplayHelpText(clockOutError)
       return
     end
 
@@ -113,52 +112,4 @@ function CDeliveryController:setClockedIn(clockedIn)
   end
 
   lib.registerContext(TJ_DEPOT_MENU_OPTIONS)
-end
-
----Use the games built in notification system to display help text
----@param inputType string
----@param components table?
-function CDeliveryController:displayHelpText(inputType, components)
-  if IsHelpMessageBeingDisplayed() then
-    ClearHelp(true)
-  end
-
-  BeginTextCommandDisplayHelp(inputType)
-
-  if type(components) == 'table' and next(components) then
-    for componentIndex = 1, #components do
-      local component = components[componentIndex]
-      local componentType = type(component)
-
-      if componentType == 'string' then
-        AddTextComponentSubstringTextLabel(component)
-      elseif componentType == 'number' then
-        AddTextComponentInteger(component)
-      else
-        warn(('Could not display help text a invalid component type (%s) specified for help message %s at index %d.')
-          :format(componentType, inputType, componentIndex))
-        return
-      end
-    end
-  end
-
-  EndTextCommandDisplayHelp(0, false, true, -1)
-end
-
----Displays the built in busy spinner with the provided text label
----@param labelName string
-function CDeliveryController:displayBusySpinner(labelName)
-  BeginTextCommandBusyspinnerOn('STRING')
-  AddTextComponentSubstringTextLabel(labelName)
-  EndTextCommandBusyspinnerOn(BUSY_SPINNER_RIGHT)
-end
-
----Get the width of the passed entitys model
----@param entity number
----@return number entityWidth
-function CDeliveryController:getEntityWidth(entity)
-  local entityModel = GetEntityModel(entity)
-  local modelMin, modelMax = GetModelDimensions(entityModel)
-
-  return modelMax.x - modelMin.x
 end

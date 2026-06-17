@@ -1,3 +1,5 @@
+local BUSY_SPINNER_RIGHT <const> = 4
+
 ---Sets the displayed name for a blip
 ---@param blip number
 ---@param name string
@@ -199,9 +201,40 @@ function GetEntityWidth(entity)
   return modelMax.x - modelMin.x
 end
 
----comment
+---Use the games built in notification system to display help text
+---@param inputType string
+---@param components table?
+function DisplayHelpText(inputType, components)
+  if IsHelpMessageBeingDisplayed() then
+    ClearHelp(true)
+  end
+
+  BeginTextCommandDisplayHelp(inputType)
+
+  if type(components) == 'table' and next(components) then
+    for componentIndex = 1, #components do
+      local component = components[componentIndex]
+      local componentType = type(component)
+
+      if componentType == 'string' then
+        AddTextComponentSubstringTextLabel(component)
+      elseif componentType == 'number' then
+        AddTextComponentInteger(component)
+      else
+        warn(('Could not display help text an invalid component type (%s) was specified for help message %s at index %d.')
+          :format(componentType, inputType, componentIndex))
+        return
+      end
+    end
+  end
+
+  EndTextCommandDisplayHelp(0, false, true, -1)
+end
+
+---Displays the built in busy spinner with the provided text label
+---@param labelName string
 function DisplayBusySpinner(labelName)
   BeginTextCommandBusyspinnerOn('STRING')
   AddTextComponentSubstringTextLabel(labelName)
-  EndTextCommandBusyspinnerOn(4)
+  EndTextCommandBusyspinnerOn(BUSY_SPINNER_RIGHT)
 end
