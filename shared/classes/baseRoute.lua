@@ -1,4 +1,5 @@
 local IS_SERVER <const> = IsDuplicityVersion()
+local INVALID_ENTTITY <const> = 0
 local HALF_A_SECOND <const> = 500
 local RADAR_TRUCK <const> = 477
 local RADAR_TRAILER <const> = 479
@@ -173,7 +174,6 @@ function CBaseRoute:setTrailerReturnLocation(trailerReturnLocation)
   }
 end
 
-
 ---Get the current driver assigned to this route
 ---@return CDriver?
 function CBaseRoute:getDriver()
@@ -192,9 +192,10 @@ end
 
 ---Reset route to its orignal unassigned state
 function CBaseRoute:reset()
-  self:setTruckIndex(0)
-  self:setTrailerIndex(0)
-  self:setDriver(nil)
+  self.private.m_truckIndex = INVALID_ENTTITY
+  self.private.m_trailerIndex = INVALID_ENTTITY
+  self.private.m_state = RouteStates.unassigned
+  self.private.m_driver = nil
 end
 
 ---Creates a blip for the routes delivery truck

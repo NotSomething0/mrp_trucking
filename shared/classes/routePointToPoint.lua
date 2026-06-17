@@ -104,6 +104,12 @@ function CRoutePointToPoint:getTrailerReturnLocation()
   return self.private.m_baseRoute:getTrailerReturnLocation()
 end
 
+---Reset route to its orignal unassigned state
+---@see CBaseRoute.reset
+function CRoutePointToPoint:reset()
+  self.private.m_baseRoute:reset()
+end
+
 function CRoutePointToPoint:taskCollectTruck()
   self.private.m_baseRoute:createTruckBlip()
 
