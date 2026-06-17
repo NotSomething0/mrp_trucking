@@ -156,15 +156,19 @@ function CRoutePointToPoint:taskCollectTrailer()
     local hasTrailer, truckTrailer = GetVehicleTrailerVehicle(driverTruck)
 
     if hasTrailer then
-      local trailerCollected, trailerCollectionError = lib.callback.await('mrp:trucking:trailerCollected', false)
+      if truckTrailer ~= driverTrailer then
+        DisplayHelpText('TJ_INCORRECT_TRAILER')
+      else
+        local trailerCollected, trailerCollectionError = lib.callback.await('mrp:trucking:trailerCollected', false)
 
-      if not trailerCollected then
-        DetachVehicleFromTrailer(driverTruck)
-        TriggerEvent('mrp:trucking:displayHelpText', trailerCollectionError)
-      end
+        if not trailerCollected then
+          DetachVehicleFromTrailer(driverTruck)
+          TriggerEvent('mrp:trucking:displayHelpText', trailerCollectionError)
+        end
 
-      if trailerCollected and truckTrailer == driverTrailer then
-        break
+        if trailerCollected and truckTrailer == driverTrailer then
+          break
+        end
       end
     end
   end
