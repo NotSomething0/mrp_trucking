@@ -17,9 +17,9 @@ end
 
 ---Gets the specified driver 
 ---@param playerIndex number
----@return CDriver|false driver
+---@return CDriver? driver
 function CDriverManager:getDriver(playerIndex)
-  return self.private.m_drivers[playerIndex] or false
+  return self.private.m_drivers[playerIndex]
 end
 
 ---Adds a driver to the driver pool
