@@ -1,23 +1,18 @@
 ---@class CDriverManager
----@field private private { m_config: CTruckingConfig, m_deliveryManager: CDeliveryManager, m_drivers: table } 
+---@field private private { m_config: CTruckingConfig, m_routeManager: CDeliveryManager, m_drivers: table } 
 CDriverManager = lib.class('CDriverManager')
 
 ---@param config CTruckingConfig
 ---@param deliveryManager CDeliveryManager
 function CDriverManager:constructor(config, deliveryManager)
   self.private.m_config = config
-  self.private.m_deliveryManager = deliveryManager
+  self.private.m_routeManager = deliveryManager
   self.private.m_drivers = {}
 end
 
 ---@return CTruckingConfig
 function CDriverManager:getConfig()
   return self.private.m_config
-end
-
----@return CDeliveryManager
-function CDriverManager:getRouteManager()
-  return self.private.m_deliveryManager
 end
 
 ---Gets the specified driver 
@@ -58,10 +53,8 @@ function CDriverManager:removeDriver(driver)
     DeleteEntity(driverTrailer)
   end
 
-  if driverRoute ~= RouteTypes.INVALID then
-    local routeManager = self:getRouteManager()
-
-    routeManager:makeRouteAvaliable(driverRoute)
+  if driverRoute and driverRoute:getState() ~= RouteTypes.INVALID then
+    self.private.m_routeManager:makeRouteAvaliable(driverRoute)
   end
 
   self.private.m_drivers[playerIndex] = nil
@@ -77,8 +70,7 @@ function CDriverManager:assignDriverRoute(driver)
     return false, 'TJ_DRIVER_ALREADY_HAS_ROUTE'
   end
 
-  local routeManager = self:getRouteManager()
-  local nextRoute = routeManager:getAvailableRoute()
+  local nextRoute = self.private.m_routeManager:getAvailableRoute()
 
   if not nextRoute then
     return false, 'TJ_NO_ROUTES_AVAILABLE'
@@ -92,7 +84,7 @@ function CDriverManager:assignDriverRoute(driver)
   local truckSuccess, truckError = self:assignDriverTruck(driver)
   if not truckSuccess then
     -- Cleanup and return route to pool
-    routeManager:makeRouteAvaliable(nextRoute)
+    self.private.m_routeManager:makeRouteAvaliable(nextRoute)
     driver:setDeliveryRoute(nil)
     return false, truckError
   end
@@ -104,7 +96,7 @@ function CDriverManager:assignDriverRoute(driver)
     if DoesEntityExist(truck) then
       DeleteEntity(truck)
     end
-    routeManager:makeRouteAvaliable(nextRoute)
+    self.private.m_routeManager:makeRouteAvaliable(nextRoute)
     driver:setDeliveryRoute(nil)
     return false, trailerError
   end
@@ -123,8 +115,7 @@ function CDriverManager:createDriverTruck(driver, truckModel)
     return false, 'TJ_NO_ROUTE_ASSIGNED'
   end
 
-  local routeManager = self:getRouteManager()
-  local truckSpawn = routeManager:getFreeTruckSpawn()
+  local truckSpawn = self.private.m_routeManager:getFreeTruckSpawn()
 
   if not truckSpawn then
     return false, 'TJ_NO_TRK_SPAWN'
