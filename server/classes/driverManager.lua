@@ -37,11 +37,9 @@ function CDriverManager:addDriver(driver)
   return true
 end
 
----Removes a driver from the driver pool and cleans up their resources
+---Removes a driver from the driver pool and cleans up their entities
 ---@param driver CDriver
 function CDriverManager:removeDriver(driver)
-  local playerIndex = driver:getPlayerIndex()
-  local driverRoute = driver:getDeliveryRoute()
   local driverTruck = driver:getTruckIndex()
   local driverTrailer = driver:getTrailerIndex()
 
@@ -53,11 +51,32 @@ function CDriverManager:removeDriver(driver)
     DeleteEntity(driverTrailer)
   end
 
-  if driverRoute and driverRoute:getState() ~= RouteTypes.INVALID then
+  self.private.m_drivers[driver:getPlayerIndex()] = nil
+end
+
+---Clocks out a driver ensures they are not completing a delivery and are paid out.
+---@param driver CDriver?
+---@return boolean success, string? errorMessage
+function CDriverManager:clockOutDriver(driver)
+  if type(driver) ~= 'table' or getmetatable(driver) ~= CDriver then
+    return false, 'TJ_ALREADY_CLOCKED_OUT'
+  end
+
+  local driverRoute = driver:getDeliveryRoute()
+
+  if driverRoute and driverRoute:getType() ~= RouteTypes.INVALID then
+    if driverRoute:getState() ~= RouteStates.completed then
+      return false, 'TJ_ROUTE_NOT_COMPLETE'
+    end
+
+    -- Driver still has a route assigned to them mark it as avaliable
     self.private.m_routeManager:makeRouteAvaliable(driverRoute)
   end
 
-  self.private.m_drivers[playerIndex] = nil
+  self:payOutDriver(driver)
+  self:removeDriver(driver)
+
+  return true
 end
 
 ---Try to assign a driver a delivery route

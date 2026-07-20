@@ -27,6 +27,17 @@ lib.callback.register('mrp:trucking:clockIn', function(source)
     return true
 end)
 
+lib.callback.register('mrp:trucking:clockOut', function(source)
+    local driver = driverManager:getDriver(source)
+    local success, errorMessage = driverManager:clockOutDriver(driver)
+
+    if not success then
+        return false, errorMessage
+    end
+
+    return true
+end)
+
 lib.callback.register('mrp:trucking:continueShift', function(source)
     local driver = driverManager:getDriver(source)
 
@@ -45,23 +56,6 @@ lib.callback.register('mrp:trucking:continueShift', function(source)
     if not success then
         return false, errorMessage
     end
-
-    return true
-end)
-
-lib.callback.register('mrp:trucking:clockOut', function(source)
-    local driver = driverManager:getDriver(source)
-
-    if not driver then
-        return false, 'TJ_ALREADY_CLOCKED_OUT'
-    end
-
-    if driver:getDeliveryRoute() then
-        return false, 'TJ_SHIFT_ALREADY_STARTED'
-    end
-
-    driverManager:payOutDriver(driver)
-    driverManager:removeDriver(driver)
 
     return true
 end)
