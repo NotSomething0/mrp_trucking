@@ -24,16 +24,21 @@ end
 
 ---Adds a driver to the driver pool
 ---@param driver CDriver
----@return boolean success
 function CDriverManager:addDriver(driver)
-  local playerIndex = driver:getPlayerIndex()
+  self.private.m_drivers[driver:getPlayerIndex()] = driver
+end
 
+---comment
+---@param playerIndex number
+function CDriverManager:clockInPlayer(playerIndex)
   if self:getDriver(playerIndex) then
-    warn(('Unable to add driver by player index %d they already exist in the driver pool'):format(playerIndex))
-    return false
+    return false, 'TJ_ALREADY_CLOCKED_IN'
   end
 
-  self.private.m_drivers[playerIndex] = driver
+  local driver = CDriver:new(playerIndex)
+
+  self:addDriver(driver)
+
   return true
 end
 
@@ -55,9 +60,11 @@ function CDriverManager:removeDriver(driver)
 end
 
 ---Clocks out a driver ensures they are not completing a delivery and are paid out.
----@param driver CDriver?
+---@param playerIndex number
 ---@return boolean success, string? errorMessage
-function CDriverManager:clockOutDriver(driver)
+function CDriverManager:clockOutPlayer(playerIndex)
+  local driver = self:getDriver(playerIndex)
+
   if type(driver) ~= 'table' or getmetatable(driver) ~= CDriver then
     return false, 'TJ_ALREADY_CLOCKED_OUT'
   end

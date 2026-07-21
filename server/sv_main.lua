@@ -6,36 +6,11 @@ local deliveryManager <const> = CDeliveryManager:new(config)
 local driverManager <const> = CDriverManager:new(config, deliveryManager)
 
 lib.callback.register('mrp:trucking:clockIn', function(source)
-    local driver = driverManager:getDriver(source)
-
-    if driver then
-        return false, 'TJ_ALREADY_CLOCKED_IN'
-    end
-
-    driver = CDriver:new(source)
-
-    if not driver then
-        return false, 'TJ_UNKNOWN_ERROR'
-    end
-
-    local success = driverManager:addDriver(driver)
-
-    if not success then
-        return false, 'TJ_FAILED_TO_ADD_DRIVER'
-    end
-
-    return true
+    return driverManager:clockInPlayer(source)
 end)
 
 lib.callback.register('mrp:trucking:clockOut', function(source)
-    local driver = driverManager:getDriver(source)
-    local success, errorMessage = driverManager:clockOutDriver(driver)
-
-    if not success then
-        return false, errorMessage
-    end
-
-    return true
+    return driverManager:clockOutPlayer(source)
 end)
 
 lib.callback.register('mrp:trucking:continueShift', function(source)
