@@ -68,6 +68,7 @@ AddEventHandler('onClientResourceStart', function(resourceName)
     end
 
     AddTextEntry('TJ_UNKNOWN_ERROR', 'An unknown error occured try repeating your previous action or contact development if this issue persists.')
+    AddTextEntry('TJ_NOT_CLOCKED_IN', 'You can not perform this action as you\'re not clocked in.')
     AddTextEntry('TJ_ALREADY_CLOCKED_IN', 'You\'re already clocked in your vehicle should be nearby.')
     AddTextEntry('TJ_ALREADY_CLOCKED_OUT', 'You can not clock out as you were never clocked in.')
     AddTextEntry('TJ_SHIFT_ALREADY_STARTED', 'You already began your shift your equipment should be nearby.')
