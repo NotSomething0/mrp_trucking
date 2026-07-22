@@ -115,10 +115,10 @@ function CRoutePointToPoint:taskCollectTruck()
 
   local truckIndex = self:getTruckIndex()
 
+  TriggerEvent('mrp:trucking:displayHelpText', 'TJ_COLLECT_TRUCK')
+
   while true do
     Wait(0)
-
-    DisplayHelpTextThisFrame('TJ_COLLECT_TRUCK', false)
 
     if IsPedInVehicle(cache.ped, truckIndex, false) then
       -- Server side GetVehiclePedIsIn sometimes returns 0 give a chance for the SyncTree to update
