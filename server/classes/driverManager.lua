@@ -10,11 +10,6 @@ function CDriverManager:constructor(config, deliveryManager)
   self.private.m_drivers = {}
 end
 
----@return CTruckingConfig
-function CDriverManager:getConfig()
-  return self.private.m_config
-end
-
 ---Gets the specified driver 
 ---@param playerIndex number
 ---@return CDriver? driver
@@ -22,22 +17,14 @@ function CDriverManager:getDriver(playerIndex)
   return self.private.m_drivers[playerIndex]
 end
 
----Adds a driver to the driver pool
----@param driver CDriver
-function CDriverManager:addDriver(driver)
-  self.private.m_drivers[driver:getPlayerIndex()] = driver
-end
-
----comment
+---Clock in a player and add them to the driver pool
 ---@param playerIndex number
 function CDriverManager:clockInPlayer(playerIndex)
   if self:getDriver(playerIndex) then
     return false, 'TJ_ALREADY_CLOCKED_IN'
   end
 
-  local driver = CDriver:new(playerIndex)
-
-  self:addDriver(driver)
+  self.private.m_drivers[playerIndex] = CDriver:new(playerIndex)
 
   return true
 end
@@ -86,14 +73,18 @@ function CDriverManager:clockOutPlayer(playerIndex)
   return true
 end
 
----Try to assign a driver a delivery route
----@param driver CDriver
+---Assign a player a delivery route
+---@param playerIndex number
 ---@return boolean success, string? errorMessage
-function CDriverManager:assignDriverRoute(driver)
-  local driverCurrentRoute = driver:getDeliveryRoute()
+function CDriverManager:assignPlayerRoute(playerIndex)
+  local driver = self:getDriver(playerIndex)
 
-  if driverCurrentRoute then
-    return false, 'TJ_DRIVER_ALREADY_HAS_ROUTE'
+  if not driver then
+    return false, 'TJ_NOT_CLOCKED_IN'
+  end
+
+  if driver:getDeliveryRoute() then
+    return false, 'TJ_ROUTE_NOT_COMPLETE'
   end
 
   local nextRoute = self.private.m_routeManager:getAvailableRoute()
@@ -102,29 +93,38 @@ function CDriverManager:assignDriverRoute(driver)
     return false, 'TJ_NO_ROUTES_AVAILABLE'
   end
 
-  -- Set the driver on the route and route on the driver
-  nextRoute:setDriver(driver)
-  driver:routeAssigned(nextRoute)
+  driver:assignRoute(nextRoute)
 
-  -- Create and assign vehicles
-  local truckSuccess, truckError = self:assignDriverTruck(driver)
-  if not truckSuccess then
-    -- Cleanup and return route to pool
-    self.private.m_routeManager:makeRouteAvaliable(nextRoute)
+  local success, errorMessage = self:createDriverEntities(driver)
+
+  if not success then
     driver:setDeliveryRoute(nil)
-    return false, truckError
+    self.private.m_routeManager:makeRouteAvaliable(nextRoute)
+
+    return false, errorMessage
   end
 
-  local trailerSuccess, trailerError = self:assignDriverTrailer(driver)
-  if not trailerSuccess then
-    -- Cleanup truck and return route to pool
-    local truck = nextRoute:getTruckIndex()
-    if DoesEntityExist(truck) then
-      DeleteEntity(truck)
+  return true
+end
+
+---Create entities for a drivers delivery route
+---@param driver CDriver
+---@return boolean success, string? errorMessage
+function CDriverManager:createDriverEntities(driver)
+  local truckCreated, truckCreationError = self:assignDriverTruck(driver)
+
+  if not truckCreated then
+    return false, truckCreationError
+  end
+
+  local trailerCreated, trailerCreationError = self:assignDriverTrailer(driver)
+
+  if not trailerCreated then
+    if DoesEntityExist(driver:getTruckIndex()) then
+      DeleteEntity(driver:getTruckIndex())
     end
-    self.private.m_routeManager:makeRouteAvaliable(nextRoute)
-    driver:setDeliveryRoute(nil)
-    return false, trailerError
+
+    return false, trailerCreationError
   end
 
   return true
@@ -148,7 +148,7 @@ function CDriverManager:createDriverTruck(driver, truckModel)
   end
 
   if not truckModel or truckModel == '' then
-    local config = self:getConfig()
+    local config = self.private.m_config
     truckModel = config:getRandomTruckModel()
   end
 
@@ -175,7 +175,7 @@ function CDriverManager:createDriverTrailer(driver, trailerModel)
   end
 
   if not trailerModel or trailerModel == '' then
-    local config = self:getConfig()
+    local config = self.private.m_config
     trailerModel = config:getRandomTrailerModel()
   end
 
@@ -224,7 +224,8 @@ function CDriverManager:assignDriverTruck(driver)
   driver:setTruckIndex(truck.entity)
   driverRoute:setTruckIndex(truck.entity)
 
-  -- Give the truck a chance to settle in the sync tree otherwise NetworkGetEntityFromNetworkId and NetworkGetEntityFromNetworkId become super inconsistent
+  -- Give the truck a chance to settle in the sync tree 
+  -- Otherwise NetworkGetEntityFromNetworkId and NetworkGetEntityFromNetworkId become super inconsistent
   Wait(1000)
 
   TriggerClientEvent('mrp:trucking:truckAssigned', driver:getPlayerIndex(), NetworkGetNetworkIdFromEntity(truck.entity))
@@ -280,10 +281,9 @@ end
 function CDriverManager:processWaitingDrivers()
   for _, driver in pairs(self.private.m_drivers) do
     if driver:getStatus() == DriverStatus.WAITING_FOR_DELIVERY then
-      local success, errorMessage = self:assignDriverRoute(driver)
+      local success, errorMessage = self:assignPlayerRoute(driver:getPlayerIndex())
 
       if not success and errorMessage ~= 'TJ_NO_ROUTES_AVAILABLE' then
-        -- Log non-route-availability errors
         warn(('Failed to assign route to driver %s: %s'):format(driver:getPlayerIndex(), errorMessage))
       end
     end

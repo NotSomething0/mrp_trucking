@@ -41,11 +41,13 @@ function CDriver:setDeliveryRoute(route)
   self.private.m_route = route
 end
 
----Set the drivers delivery route
+---Assign a driver route
 ---@param route CDeliveryRoute
-function CDriver:routeAssigned(route)
-  self:setDeliveryRoute(route)
-  self:setStatus(DriverStatus.WAITING_FOR_ROUTE_INIT)
+function CDriver:assignRoute(route)
+  self.private.m_route = route
+  self.private.m_status = DriverStatus.WAITING_FOR_ROUTE_INIT
+
+  route:setDriver(self)
 
   TriggerClientEvent('mrp:trucking:routeAssigned', self:getPlayerIndex(), route:getIndex())
 end

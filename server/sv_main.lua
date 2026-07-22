@@ -14,25 +14,7 @@ lib.callback.register('mrp:trucking:clockOut', function(source)
 end)
 
 lib.callback.register('mrp:trucking:continueShift', function(source)
-    local driver = driverManager:getDriver(source)
-
-    if not driver then
-        return false, 'TJ_ALREADY_CLOCKED_OUT'
-    end
-
-    local driverCurrentRoute = driver:getDeliveryRoute()
-
-    if driverCurrentRoute or driver:getStatus() ~= DriverStatus.SPEAKING_WITH_MANAGER then
-        return false, 'TJ_ROUTE_NOT_COMPLETE'
-    end
-
-    local success, errorMessage = driverManager:assignDriverRoute(driver)
-
-    if not success then
-        return false, errorMessage
-    end
-
-    return true
+    return driverManager:assignPlayerRoute(source)
 end)
 
 lib.callback.register('mrp:trucking:truckCollected', function(source)
