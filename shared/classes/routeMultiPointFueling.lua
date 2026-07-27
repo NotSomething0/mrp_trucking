@@ -76,6 +76,12 @@ function CRouteMultiPointFueling:getTrailerIndex()
   return self.private.m_baseRoute:getTrailerIndex()
 end
 
+---@see CBaseRoute.setTrailerIndex
+---@param trailerIndex number
+function CRouteMultiPointFueling:setTrailerIndex(trailerIndex)
+  self.private.m_baseRoute:setTrailerIndex(trailerIndex)
+end
+
 ---Returns the network trailer index for this route
 ---@return number networkTrailerIndex
 function CRouteMultiPointFueling:getNetworkTrailerIndex()
